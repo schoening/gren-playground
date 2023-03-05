@@ -1,0 +1,79 @@
+module Update exposing ( update )
+
+import Http
+import Json.Encode as Encode
+import Message exposing (..)
+import Model exposing (..)
+
+
+update :
+    Msg
+    -> Model
+    -> { model : Model
+       , command : Cmd Msg
+       }
+update msg model =
+    case msg of
+        OnSidebarFileClicked file ->
+            let
+                updatedModel =
+                    { model | selectedFile = Just file }
+            in
+            { model = updatedModel
+            , command = Cmd.none
+            }
+
+        OnSaveButtonClicked ->
+            let
+                fileEncoder file =
+                    Encode.object
+                        [ { key = "name"
+                          , value = Encode.string file.name
+                          }
+                        , { key = "extension"
+                          , value = Encode.string "gren"
+                          }
+                        , { key = "content"
+                          , value = Encode.string file.content
+                          }
+                        ]
+
+                filesEncoder files =
+                    Encode.array fileEncoder files
+
+                requestEncoder folderName files =
+                    Encode.object
+                        [ { key = "folderName"
+                          , value = Encode.string folderName
+                          }
+                        , { key = "files"
+                          , value = filesEncoder files
+                          }
+                        ]
+
+                encodedRequest =
+                    requestEncoder model.folderName model.files
+                        |> Encode.encode 0
+
+                _ =
+                    Debug.log "encodedRequest" (Debug.toString encodedRequest)
+
+                request =
+                    Http.post
+                        { url = "/api/save"
+                        , body = Http.stringBody "application/json" encodedRequest
+                        , expect = Http.expectString GotResponse
+                        }
+            in
+            { model = model
+            , command = request
+            }
+
+        GotResponse response ->
+            let
+                _ =
+                    Debug.log "response" response
+            in
+            { model = model
+            , command = Cmd.none
+            }

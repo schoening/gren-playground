@@ -1,0 +1,27 @@
+{
+  "name": "gren-playground",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "run-p watch:*",
+    "watch:css": "tailwindcss -i src/index.css -o ../public/output.css -w",
+    "watch:gren": "watch 'npm run format:gren && npm run build:gren -- --debug' src",
+    "format:gren": "gren format src --yes",
+    "build:gren": "gren make src/Main.gren --output=../public/gren.js",
+    "build:css": "tailwindcss -i src/index.css -o dist/output.css"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "tailwindcss": "^3.2.7",
+    "watch": "^0.13.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "uuid4": "^2.0.3"
+  }
+}

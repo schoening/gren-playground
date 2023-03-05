@@ -1,0 +1,23 @@
+module Model exposing (..)
+
+
+
+type alias Flags =
+    { folderName : String
+    , files : Array File
+    }
+
+
+type alias File =
+    { name : String
+    , extension : String
+    , content : String
+    }
+
+
+type alias Model =
+    { sidebarWidth : Int
+    , files : Array File
+    , selectedFile : Maybe File
+    , folderName : String
+    }

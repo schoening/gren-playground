@@ -1,0 +1,43 @@
+module Init exposing ( init )
+
+import Message exposing (..)
+import Model exposing (..)
+
+
+initialFiles : Array File
+initialFiles =
+    [ { name = "Main"
+      , extension = "gren"
+      , content =
+            """
+            module Main exposing ( main )
+            
+            import Html as H
+            
+            main =
+                H.div
+                    []
+                    [ H.text "Hello, World!!!!!!!!!" ]
+            """
+      }
+    ]
+
+
+init :
+    Flags
+    -> { model : Model
+       , command : Cmd Msg
+       }
+init flags =
+    let
+        _ =
+            Debug.log "flags" (Debug.toString flags)
+    in
+    { model =
+        { sidebarWidth = 200
+        , files = initialFiles
+        , selectedFile = Nothing
+        , folderName = flags.folderName
+        }
+    , command = Cmd.none
+    }

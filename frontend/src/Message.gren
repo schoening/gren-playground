@@ -1,0 +1,10 @@
+module Message exposing (..)
+
+import Http
+import Model exposing (..)
+
+
+type Msg
+    = OnSidebarFileClicked File
+    | OnSaveButtonClicked
+    | GotResponse (Result Http.Error String)
