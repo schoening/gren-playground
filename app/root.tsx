@@ -8,6 +8,12 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+declare global {
+  interface Window {
+    Gren?: any;
+  }
+}
+
 export const meta: MetaFunction = () => ({
   charset: "utf-8",
   title: "New Remix App",

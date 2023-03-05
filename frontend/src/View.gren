@@ -14,11 +14,7 @@ view model =
         , HA.class "flex"
         , HA.class "bg-slate-500"
         ]
-        [ H.div
-            []
-            [ H.text model.folderName
-            ]
-        , viewSidebar model
+        [ viewSidebar model
         , viewCodeEditor model
         , viewResult model
         , H.button
@@ -118,7 +114,7 @@ viewResult model =
         ]
         [ H.iframe
             [ HA.class "w-full h-full"
-            , HA.src "http://localhost:3000/iframe/df9352c4-e9e5-4fe8-9ee3-c5b418970bff_1"
+            , HA.src ("/iframe/" ++ model.folderName)
             ]
             []
         ]

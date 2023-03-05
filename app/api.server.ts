@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { exec, spawn } from "child_process";
 import dedent from "dedent";
+import * as E from "fp-ts/lib/Either";
+import * as TE from "fp-ts/lib/TaskEither";
 
 export type FileData = {
   name: string;
@@ -9,281 +11,237 @@ export type FileData = {
   content: string;
 };
 
-export const getFileNames = (directoryPath: string): Promise<string[]> => {
-  return new Promise((resolve, reject) => {
-    fs.readdir(directoryPath, (readDirError, files) => {
-      if (readDirError) {
-        return reject(readDirError);
-      }
-      return resolve(files);
-    });
-  });
-};
+// Get the file names in the directory
+export const getFileNames = (
+  directoryPath: string
+): TE.TaskEither<Error, string[]> =>
+  TE.tryCatch(
+    () =>
+      new Promise<string[]>((resolve, reject) => {
+        fs.readdir(directoryPath, (readDirError, files) => {
+          if (readDirError) {
+            return reject(readDirError);
+          }
+          return resolve(files);
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );
 
+// Get the file data from the file names
 export const getFiles = (
   directoryPath: string,
   fileNames: string[]
-): Promise<FileData[]> => {
-  return new Promise((resolve, reject) => {
-    const fileDataArray: FileData[] = [];
-    fileNames.forEach((fileName) => {
-      const filePath = path.join(directoryPath, fileName);
-      fs.readFile(filePath, "utf-8", (fileReadError, data) => {
-        if (fileReadError) {
-          return reject(fileReadError);
+): TE.TaskEither<Error, FileData[]> =>
+  TE.tryCatch(
+    () =>
+      new Promise<FileData[]>((resolve, reject) => {
+        const fileDataArray: FileData[] = [];
+        if (fileNames.length === 0) {
+          return reject(
+            new Error(
+              'No files found in the directory (Folder MUST contain "Main.gren" file)'
+            )
+          );
         }
-        const fileData = {
-          name: fileName,
-          extension: path.extname(fileName),
-          content: data,
-        };
-        fileDataArray.push(fileData);
-        if (fileDataArray.length === fileNames.length) {
-          return resolve(fileDataArray);
+        fileNames.forEach((fileName) => {
+          const filePath = path.join(directoryPath, fileName);
+          fs.readFile(filePath, "utf-8", (fileReadError, data) => {
+            if (fileReadError) {
+              return reject(fileReadError);
+            }
+            const fileData = {
+              name: fileName,
+              extension: path.extname(fileName),
+              content: data,
+            };
+            fileDataArray.push(fileData);
+            if (fileDataArray.length === fileNames.length) {
+              return resolve(fileDataArray);
+            }
+          });
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );
+
+// Delete the folder with the given path
+export const deleteFolder = (
+  pathToFolder: string
+): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        exec(`rm -rf ${pathToFolder}`, (error, stdout, stderr) => {
+          if (error) {
+            return reject(error);
+          }
+          if (stderr) {
+            return reject(stderr);
+          }
+          if (stdout) {
+            return resolve();
+          }
+          resolve();
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );
+
+// Delete the file with the given path
+export const deleteFile = (pathToFile: string): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        exec(`rm ${pathToFile}`, (error, stdout, stderr) => {
+          if (error) {
+            return reject(error);
+          }
+          if (stderr) {
+            return reject(stderr);
+          }
+          if (stdout) {
+            return resolve();
+          }
+          return resolve();
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );
+
+// Create a folder with the given path
+export const createFolder = (
+  directoryPath: string
+): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        try {
+          fs.mkdirSync(directoryPath, { recursive: true });
+          return resolve();
+        } catch (mkdirError) {
+          return reject(mkdirError);
         }
-      });
-    });
-  });
-};
+      }),
+    (reason) => new Error(String(reason))
+  );
 
-export const deleteFolder = (pathToFolder: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    exec(`rm -rf ${pathToFolder}`, (error, stdout, stderr) => {
-      if (error) {
-        return reject(error);
-      }
-      if (stderr) {
-        return reject(stderr);
-      }
-      if (stdout) {
-        return resolve();
-      }
-      resolve();
-    });
-  });
-};
+// Create a file with the given path
+export const createFile = (
+  directoryPath: string,
+  file: FileData
+): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        const filePath = `${directoryPath}/${file.name}.${file.extension}`;
+        // create a file inside the directory
+        fs.writeFile(filePath, file.content, (writeFileError) => {
+          if (writeFileError) {
+            return reject(writeFileError);
+          }
+          return resolve();
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );
 
-export const deleteFile = (pathToFile: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    exec(`rm ${pathToFile}`, (error, stdout, stderr) => {
-      if (error) {
-        return reject(error);
-      }
-      if (stderr) {
-        return reject(stderr);
-      }
-      if (stdout) {
-        return resolve();
-      }
-      return resolve();
-    });
-  });
-};
-
-export const createFolder = (directoryPath: string): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    try {
-      fs.mkdirSync(directoryPath, { recursive: true });
-      return resolve();
-    } catch (mkdirError) {
-      return reject(mkdirError);
-    }
-  });
-};
-
+// Create files with the given path
 export const createFiles = (
   directoryPath: string,
   files: FileData[]
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    let filesCreated = 0;
-    files.forEach((file) => {
-      const filePath = `${directoryPath}/${file.name}.${file.extension}`;
-      // create a file inside the directory
-      fs.writeFile(filePath, file.content, (writeFileError) => {
-        console.log({ writeFileError });
-        if (writeFileError) {
-          return reject(writeFileError);
-        }
-        filesCreated += 1;
+): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        Promise.all(
+          files.map(async (file) => {
+            const createFileEither = await createFile(directoryPath, file)();
+            if (E.isLeft(createFileEither)) {
+              return reject(createFileEither.left);
+            }
+            if (E.isRight(createFileEither)) {
+              return resolve();
+            }
+          })
+        );
+      }),
+    (reason) => new Error(String(reason))
+  );
 
-        if (filesCreated === files.length) {
-          console.log(filesCreated === files.length);
-          return resolve();
-        }
-      });
-    });
-  });
-};
-
-const createErrorFile = (
+// Create an error.txt file at the given path
+export const createErrorFile = (
   directoryPath: string,
   error: string
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(`${directoryPath}/error.txt`, error, (writeFileError) => {
-      if (writeFileError) {
-        return reject(writeFileError);
-      }
-      console.log("Error file created successfully!");
-      return resolve();
-    });
-  });
+): TE.TaskEither<Error, void> => {
+  const path = `${directoryPath}`;
+  const errorFile: FileData = {
+    name: "error",
+    extension: "txt",
+    content: error,
+  };
+  return createFile(path, errorFile);
 };
 
-// export const save = async (directoryPath: string, files: FileData[]) => {
-//   return new Promise(async (resolve, reject) => {
-//     console.log("deleting src folder...");
-//     // await deleteSrcFolder(folderName);
+export enum CompileResult {
+  Success = "Success",
+  WithErrors = "WithErrors",
+}
 
-//     console.log("creating src folder...");
-//     await createFolder(`${directoryPath}/src`);
-//     console.log("creating files...");
-//     await createFiles(`${directoryPath}/src`, files);
-//     try {
-//       console.log("deleting error.json...");
-//       await deleteFile(directoryPath, "error.txt");
-//     } catch (error) {
-//       console.log(error);
-//     }
-//     try {
-//       console.log("deleting gren.js...");
-//       await deleteFile(directoryPath, "gren.js");
-//     } catch (error) {
-//       console.log(error);
-//     }
-
-//     try {
-//       console.log("compiling...");
-//       const compileResult = await compile(
-//         directoryPath,
-//         `${directoryPath}/src/Main.gren`
-//       );
-//       resolve(compileResult);
-//     } catch (error) {
-//       console.log({ error });
-//       reject(error);
-//     }
-//   });
-// };
-
-// export const compile = (
-//   directoryPath: string,
-//   pathToMainGren: string
-// ): Promise<any> => {
-//   return new Promise((resolve, reject) => {
-//     exec(
-//       `gren make ${pathToMainGren} --output=${directoryPath}/gren.js --debug`,
-//       function (err, stout, stderr) {
-//         if (err) {
-//           try {
-//             createErrorFile(directoryPath, stderr);
-//             resolve("compile-error");
-//           } catch (error) {
-//             reject(error);
-//           }
-//         }
-//         if (stout) {
-//           resolve("success");
-//         }
-//         if (stderr) {
-//           return reject(stderr);
-//         }
-//       }
-//     );
-//   });
-// };
-
-export const compile = (folderName: string): Promise<any> => {
-  console.log("compiling...");
-  return new Promise((resolve, reject) => {
-    exec(
-      `cd ./project/${folderName}/ && gren make ./src/Main.gren --output=./gren.js --debug`,
-      function (err, stout, stderr) {
-        if (err) {
-          try {
-            createErrorFile(`./project/${folderName}`, stderr);
-            resolve("compile-error");
-          } catch (error) {
-            reject(error);
+// Compile the gren project with the given folder name
+// Using Main.gren as the entry point
+export const compile = (
+  folderName: string
+): TE.TaskEither<Error, CompileResult> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        exec(
+          `cd ./project/${folderName}/ && gren make ./src/Main.gren --output=./gren.js --debug`,
+          async function (err, stout, stderr) {
+            if (err) {
+              const createErrorFileEither = await createErrorFile(
+                `./project/${folderName}`,
+                stderr
+              )();
+              if (E.isLeft(createErrorFileEither)) {
+                return reject(createErrorFileEither.left);
+              }
+              if (E.isRight(createErrorFileEither)) {
+                return resolve(CompileResult.WithErrors);
+              }
+            }
+            if (stout) {
+              resolve(CompileResult.Success);
+            }
+            if (stderr) {
+              return reject(stderr);
+            }
           }
-        }
-        if (stout) {
-          resolve("success");
-        }
-        if (stderr) {
-          return reject(stderr);
-        }
-      }
-    );
-  });
-};
+        );
+      }),
+    (reason) => new Error(String(reason))
+  );
 
-export const grenInit = async (folderName: string): Promise<void> => {
-  return new Promise(async (resolve, reject) => {
-    console.log("gren init ...");
-
-    var child = spawn(`cd ./project/${folderName} && gren init`, {
-      shell: true,
-    });
-    child.stderr.on("data", function (data) {
-      console.error("STDERR:", data.toString());
-      resolve();
-    });
-    child.stdout.on("data", function (data) {
-      console.log("STDOUT:", data.toString());
-      child.stdin.write("Y");
-      child.stdin.end();
-    });
-    child.on("exit", function (exitCode) {
-      console.log("Child exited with code: " + exitCode);
-      resolve();
-    });
-
-    // exec(`cd ./project/${folderName} && gren init`, (error, stdout, stderr) => {
-    //   console.log({ error, stdout, stderr });
-    //   if (error) {
-    //     return reject(error);
-    //   }
-    //   if (stderr) {
-    //     return reject(stderr);
-    //   }
-    //   if (stdout) {
-    //     return resolve();
-    //   }
-    //   return resolve();
-    // });
-
-    // const grenJson: FileData = {
-    //   name: "gren",
-    //   extension: "json",
-    //   content: dedent(`
-    //     {
-    //       "type": "application",
-    //       "platform": "browser",
-    //       "source-directories": [
-    //           "src"
-    //       ],
-    //       "gren-version": "0.2.0",
-    //       "dependencies": {
-    //           "direct": {
-    //               "gren-lang/browser": "2.0.0",
-    //               "gren-lang/core": "3.0.2"
-    //           },
-    //           "indirect": {
-    //               "gren-lang/url": "2.0.0"
-    //           }
-    //       }
-    //   }`),
-    // };
-
-    // try {
-    //   await createFiles(directoryPath, [grenJson]);
-    //   console.log("resolve...");
-    //   resolve();
-    // } catch (error) {
-    //   console.log({ error });
-    //   reject(error);
-    // }
-  });
-};
+// Initialize the gren project with the given folder name
+export const grenInit = (folderName: string): TE.TaskEither<Error, void> =>
+  TE.tryCatch(
+    () =>
+      new Promise((resolve, reject) => {
+        var child = spawn(`cd ./project/${folderName} && gren init`, {
+          shell: true,
+        });
+        child.stderr.on("data", function (data) {
+          reject(data.toString());
+        });
+        child.stdout.on("data", function (data) {
+          child.stdin.write("Y");
+          child.stdin.end();
+        });
+        child.on("exit", function (exitCode) {
+          console.log("Child exited with code: " + exitCode);
+          resolve();
+        });
+      }),
+    (reason) => new Error(String(reason))
+  );

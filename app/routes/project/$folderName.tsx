@@ -1,32 +1,54 @@
-import { json, LinksFunction, LoaderFunction } from "@remix-run/node";
+import { json, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { useEffect } from "react";
+import * as E from "fp-ts/lib/Either";
 import * as api from "~/api.server";
 
 export const loader: LoaderFunction = async ({ params }) => {
+  console.log("loader /project/$folderName.tsx");
   const folderName = params.folderName;
 
-  try {
-    const fileNames = await api.getFileNames(`./project/${folderName}/src`);
+  const fileNamesEither = await api.getFileNames(
+    `./project/${folderName}/src`
+  )();
 
-    console.log(fileNames);
-
-    const files = await api.getFiles(`./project/${folderName}/src`, fileNames);
-
-    return json({ folderName, fileNames, files }, { status: 200 });
-  } catch (error) {
-    throw new Response("Not Found", {
-      status: 404,
-    });
+  if (E.isRight(fileNamesEither)) {
+    const fileNames = fileNamesEither.right;
+    console.log({ fileNames });
+    console.log("Getting files...");
+    const filesEither = await api.getFiles(
+      `./project/${folderName}/src`,
+      fileNames
+    )();
+    console.log("Got filesEither: ", filesEither);
+    if (E.isRight(filesEither)) {
+      const files = filesEither.right;
+      console.log({ folderName, files });
+      return json({ folderName, files });
+    }
+    if (E.isLeft(filesEither)) {
+      const error = filesEither.left;
+      throw new Error(error.message);
+    }
   }
+  throw new Response("Not Found", {
+    status: 404,
+  });
+};
+
+type LoaderData = {
+  folderName: string;
+  files: api.FileData[];
 };
 
 export default function ProjectPage() {
-  const { folderName, fileNames, files } = useLoaderData<{
-    folderName: string;
-    fileNames: string[];
-    files: api.FileData[];
-  }>();
+  const { folderName, files } = useLoaderData<LoaderData>();
+  console.log({ folderName, files });
+
+  // TESTING IF FOLDERNAME AND FILES EVER CHANGE ON AJAX REQUEST
+  useEffect(() => {
+    console.log({ folderName, files });
+  }, [folderName, files]);
 
   useEffect(() => {
     const element = document.querySelector("#gren");
@@ -36,26 +58,11 @@ export default function ProjectPage() {
         flags: { folderName, files },
       });
     }
-    // if (element) {
-    //   // @ts-ignore
-    //   if (Gren) {
-    //     // @ts-ignore
-    //     Gren.init({
-    //       node: element,
-    //     });
-    //   }
-    // }
   }, []);
 
-  console.log(files);
   return (
     <div>
       <link href="/output.css" />
-      {/* {fileNames.map((fileName) => (
-        <div key={fileName}>{fileName}</div>
-      ))}
-      <code style={{ whiteSpace: "pre-wrap" }}>{files[0].content}</code> */}
-      {/* <iframe src={`/iframe/${folderName}`} /> */}
       <div id="gren"></div>
       <script src={`/gren.js`}></script>
     </div>

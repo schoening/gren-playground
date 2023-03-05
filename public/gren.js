@@ -9998,7 +9998,7 @@ var $author$project$View$viewResult = function (model) {
 			$gren_lang$browser$Html$iframe,
 			[
 				$gren_lang$browser$Html$Attributes$class('w-full h-full'),
-				$gren_lang$browser$Html$Attributes$src('http://localhost:3000/iframe/df9352c4-e9e5-4fe8-9ee3-c5b418970bff_1')
+				$gren_lang$browser$Html$Attributes$src('/iframe/' + model.folderName)
 			],
 			[])
 		]);
@@ -10096,12 +10096,6 @@ var $author$project$View$view = function (model) {
 			$gren_lang$browser$Html$Attributes$class('bg-slate-500')
 		],
 		[
-			A2(
-			$gren_lang$browser$Html$div,
-			[],
-			[
-				$gren_lang$browser$Html$text(model.folderName)
-			]),
 			$author$project$View$viewSidebar(model),
 			$author$project$View$viewCodeEditor(model),
 			$author$project$View$viewResult(model),

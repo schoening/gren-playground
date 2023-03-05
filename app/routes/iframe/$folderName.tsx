@@ -1,33 +1,46 @@
 import { json, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { useEffect } from "react";
+import * as E from "fp-ts/lib/Either";
 import * as api from "~/api.server";
 
 export const loader: LoaderFunction = async ({ params }) => {
   const folderName = params.folderName;
 
-  try {
-    const compileError = await api.getFiles(`./project/${folderName}/`, [
-      "error.txt",
-    ]);
-    return json({ compileError: compileError[0].content });
-  } catch (error) {
-    return json({ folderName });
+  const compileErrorEither = await api.getFiles(`./project/${folderName}/`, [
+    "error.txt",
+  ])();
+
+  const grenJSEither = await api.getFiles(`./project/${folderName}/`, [
+    "gren.js",
+  ])();
+
+  if (E.isLeft(grenJSEither) && E.isLeft(compileErrorEither)) {
+    return new Response("No error.txt or gren.js found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain",
+      },
+    });
+  }
+
+  if (E.isRight(compileErrorEither)) {
+    const compileError = compileErrorEither.right;
+    return json({ folderName, compileError: compileError[0].content });
+  }
+
+  if (E.isRight(grenJSEither)) {
+    return json({ folderName, grenJSFound: true });
   }
 };
 
-declare global {
-  interface Window {
-    Gren?: any;
-  }
-}
-
 export default function IframePage() {
-  const { folderName, compileError } = useLoaderData();
-  console.log({ compileError, folderName });
+  const { folderName, grenJSFound, compileError } = useLoaderData();
+
+  console.log({ folderName, grenJSFound, compileError });
 
   useEffect(() => {
-    if (compileError) {
+    if (compileError || !grenJSFound) {
       return;
     }
     const element = document.querySelector("#gren");
@@ -36,15 +49,6 @@ export default function IframePage() {
         node: element,
       });
     }
-    // if (element) {
-    //   // @ts-ignore
-    //   if (Gren) {
-    //     // @ts-ignore
-    //     Gren.init({
-    //       node: element,
-    //     });
-    //   }
-    // }
   }, []);
 
   if (compileError) {
