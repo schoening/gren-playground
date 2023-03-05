@@ -1,0 +1,46 @@
+module Data exposing ( fileEncoder, filesEncoder, saveRequestEncoder, createNewProjectRequestEncoder, newProjectResultDecoder )
+
+import Json.Decode as Decode
+import Json.Encode as Encode
+
+
+fileEncoder file =
+    Encode.object
+        [ { key = "name"
+          , value = Encode.string file.name
+          }
+        , { key = "extension"
+          , value = Encode.string "gren"
+          }
+        , { key = "content"
+          , value = Encode.string file.content
+          }
+        ]
+
+
+filesEncoder files =
+    Encode.array fileEncoder files
+
+
+saveRequestEncoder folderName files =
+    Encode.object
+        [ { key = "folderName"
+          , value = Encode.string folderName
+          }
+        , { key = "files"
+          , value = filesEncoder files
+          }
+        ]
+
+
+createNewProjectRequestEncoder files =
+    Encode.object
+        [ { key = "files"
+          , value = filesEncoder files
+          }
+        ]
+
+
+newProjectResultDecoder : Decode.Decoder String
+newProjectResultDecoder =
+    Decode.field "folderName" Decode.string

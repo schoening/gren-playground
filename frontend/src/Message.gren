@@ -1,10 +1,16 @@
 module Message exposing (..)
 
 import Http
+import LocalStorage
 import Model exposing (..)
+import WebStorage
 
 
 type Msg
     = OnSidebarFileClicked File
+    | OnGotSelectedFileFromLocalStorage (Result WebStorage.ReadError String)
     | OnSaveButtonClicked
-    | GotResponse (Result Http.Error String)
+    | GotCreateNewProjectResponse (Result Http.Error String)
+    | GotSaveResponse (Result Http.Error String)
+    | OnCodeEditorChanged String
+    | NoOp

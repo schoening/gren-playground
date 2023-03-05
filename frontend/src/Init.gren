@@ -1,26 +1,9 @@
 module Init exposing ( init )
 
+import LocalStorage
 import Message exposing (..)
 import Model exposing (..)
-
-
-initialFiles : Array File
-initialFiles =
-    [ { name = "Main"
-      , extension = "gren"
-      , content =
-            """
-            module Main exposing ( main )
-            
-            import Html as H
-            
-            main =
-                H.div
-                    []
-                    [ H.text "Hello, World!!!!!!!!!" ]
-            """
-      }
-    ]
+import Task
 
 
 init :
@@ -32,12 +15,30 @@ init flags =
     let
         _ =
             Debug.log "flags" (Debug.toString flags)
+
+        initialModel =
+            { sidebarWidth = 200
+            , files = flags.files
+            , selectedFile = Nothing
+            , folderName =
+                if flags.folderName == "new" then
+                    New
+                else
+                    FolderName flags.folderName
+            , reloadIframeHack = 0
+            }
+
+        folderName =
+            case initialModel.folderName of
+                New ->
+                    "new"
+
+                FolderName name ->
+                    name
+
+        getSelectedFile =
+            LocalStorage.get ("selected-file" ++ "_" ++ folderName)
     in
-    { model =
-        { sidebarWidth = 200
-        , files = initialFiles
-        , selectedFile = Nothing
-        , folderName = flags.folderName
-        }
-    , command = Cmd.none
+    { model = initialModel
+    , command = Task.attempt OnGotSelectedFileFromLocalStorage getSelectedFile
     }

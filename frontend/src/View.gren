@@ -15,14 +15,92 @@ view model =
         , HA.class "bg-slate-500"
         ]
         [ viewSidebar model
-        , viewCodeEditor model
-        , viewResult model
-        , H.button
-            [ HE.onClick OnSaveButtonClicked
+        , viewRight model
+        ]
+
+
+viewRight model =
+    H.div
+        [ HA.class "w-full flex-1"
+        , HA.class "flex flex-col"
+        ]
+        [ viewRightTopBar model
+        , H.div
+            [ HA.class "w-full"
+            , HA.class "flex-1 flex flex-row"
             ]
-            [ H.text "Save via AJAX request"
+            [ viewCodeEditor model
+            , viewIframe model
             ]
         ]
+
+
+viewRightTopBar model =
+    H.div
+        [ HA.class "w-full h-8"
+        , HA.class "bg-slate-600"
+        ]
+        [ H.button
+            [ HA.class "h-8"
+            , HA.class "text-white"
+            , HA.class "p-2"
+            , HA.class "bg-orange-500"
+            , HA.class "flex justify-center items-center"
+            , HE.onClick OnSaveButtonClicked
+            ]
+            [ H.text "Save"
+            ]
+        ]
+
+
+viewCodeEditor : Model -> H.Html Msg
+viewCodeEditor model =
+    H.div
+        [ HA.class "flex-1"
+        , HA.class "bg-slate-500"
+        , HA.class "w-full"
+        , HE.onInput OnCodeEditorChanged
+        ]
+        (case model.selectedFile of
+            Just file ->
+                [ H.textarea
+                    [ HA.class "whitespace-pre-wrap"
+                    , HA.class "w-full h-full"
+                    ]
+                    [ H.text file.content
+                    ]
+                ]
+
+            Nothing ->
+                [ H.text "No file selected"
+                ]
+        )
+
+
+viewIframe : Model -> H.Html Msg
+viewIframe model =
+    H.div
+        [ HA.class "flex-1"
+        , HA.class "w-full"
+        , HA.class "border-2 border-red-500"
+        , HA.class "bg-white"
+        ]
+        (case model.folderName of
+            FolderName folderName ->
+                [ H.iframe
+                    [ HA.class "w-full h-full"
+                    , HA.src ("/iframe/" ++ folderName ++ ("?" ++ String.fromInt model.reloadIframeHack))
+                    ]
+                    []
+                ]
+
+            New ->
+                [ H.div
+                    [ HA.class "w-full h-full"
+                    ]
+                    []
+                ]
+        )
 
 
 viewSidebar : Model -> H.Html Msg
@@ -32,33 +110,18 @@ viewSidebar model =
         , HA.class "bg-slate-600"
         , HA.style "width" (String.fromInt model.sidebarWidth ++ "px")
         ]
-        [ viewSaveForm model
+        [ viewSideBarTopPanel model
         , viewSidebarFiles model
         ]
 
 
-viewSaveForm : Model -> H.Html Msg
-viewSaveForm model =
-    H.form
-        [ HA.method "post"
-        , HA.action "/api/save"
+viewSideBarTopPanel : Model -> H.Html Msg
+viewSideBarTopPanel model =
+    H.div
+        [ HA.class "w-full h-8"
+        , HA.class "bg-green-500"
         ]
-        [ H.input
-            [ HA.name "folderName"
-            , HA.value "df9352c4-e9e5-4fe8-9ee3-c5b418970bff_1"
-            ]
-            []
-        , H.input
-            [ HA.name "file[]"
-            , HA.value "Main.gren"
-            ]
-            []
-        , H.button
-            [ HA.type_ "submit"
-            ]
-            [ H.text "SAVE!!!"
-            ]
-        ]
+        []
 
 
 viewSidebarFiles : Model -> H.Html Msg
@@ -80,41 +143,4 @@ viewSidebarFile file =
         , HE.onClick (OnSidebarFileClicked file)
         ]
         [ H.text file.name
-        ]
-
-
-viewCodeEditor : Model -> H.Html Msg
-viewCodeEditor model =
-    H.div
-        [ HA.class "h-screen"
-        , HA.class "bg-slate-500"
-        , HA.class "w-full"
-        ]
-        (case model.selectedFile of
-            Just file ->
-                [ H.code
-                    [ HA.class "whitespace-pre-wrap"
-                    ]
-                    [ H.text file.content
-                    ]
-                ]
-
-            Nothing ->
-                [ H.text "No file selected"
-                ]
-        )
-
-
-viewResult : Model -> H.Html Msg
-viewResult model =
-    H.div
-        [ HA.class "h-screen"
-        , HA.class "w-full"
-        , HA.class "border-2 border-red-500"
-        ]
-        [ H.iframe
-            [ HA.class "w-full h-full"
-            , HA.src ("/iframe/" ++ model.folderName)
-            ]
-            []
         ]

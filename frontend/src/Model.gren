@@ -15,9 +15,15 @@ type alias File =
     }
 
 
+type FolderName
+    = FolderName String
+    | New
+
+
 type alias Model =
     { sidebarWidth : Int
     , files : Array File
     , selectedFile : Maybe File
-    , folderName : String
+    , folderName : FolderName
+    , reloadIframeHack : Int
     }

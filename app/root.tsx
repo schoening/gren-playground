@@ -25,7 +25,6 @@ export default function App() {
     <html lang="en">
       <head>
         <Meta />
-        <link rel="stylesheet" href="/output.css" />
         <Links />
       </head>
       <body>

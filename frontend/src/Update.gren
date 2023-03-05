@@ -1,9 +1,14 @@
 module Update exposing ( update )
 
+import Browser.Navigation
+import Data
 import Http
+import Json.Decode as Decode
 import Json.Encode as Encode
+import LocalStorage
 import Message exposing (..)
 import Model exposing (..)
+import Task
 
 
 update :
@@ -18,62 +23,152 @@ update msg model =
             let
                 updatedModel =
                     { model | selectedFile = Just file }
+
+                folderName =
+                    case model.folderName of
+                        FolderName name ->
+                            name
+
+                        New ->
+                            "new"
             in
             { model = updatedModel
+            , command =
+                Task.attempt
+                    (\result ->
+                        let
+                            _ =
+                                Debug.log "result" (Debug.toString result)
+                        in
+                        NoOp
+                    )
+                    (LocalStorage.set ("selected-file" ++ "_" ++ folderName) file.name)
+            }
+
+        NoOp ->
+            { model = model
             , command = Cmd.none
             }
 
+        OnGotSelectedFileFromLocalStorage result ->
+            case result of
+                Ok fileName ->
+                    let
+                        selectedFile =
+                            Array.filter (\f -> f.name == fileName) model.files
+                                |> Array.get 0
+                    in
+                    { model = { model | selectedFile = selectedFile }
+                    , command = Cmd.none
+                    }
+
+                Err _ ->
+                    { model = model
+                    , command = Cmd.none
+                    }
+
         OnSaveButtonClicked ->
-            let
-                fileEncoder file =
-                    Encode.object
-                        [ { key = "name"
-                          , value = Encode.string file.name
-                          }
-                        , { key = "extension"
-                          , value = Encode.string "gren"
-                          }
-                        , { key = "content"
-                          , value = Encode.string file.content
-                          }
-                        ]
+            case model.folderName of
+                FolderName fName ->
+                    let
+                        encodedRequest =
+                            Encode.encode 0
+                                <| Data.saveRequestEncoder fName model.files
 
-                filesEncoder files =
-                    Encode.array fileEncoder files
+                        _ =
+                            Debug.log "encodedRequest" (Debug.toString encodedRequest)
 
-                requestEncoder folderName files =
-                    Encode.object
-                        [ { key = "folderName"
-                          , value = Encode.string folderName
-                          }
-                        , { key = "files"
-                          , value = filesEncoder files
-                          }
-                        ]
+                        request =
+                            Http.post
+                                { url = "/api/save"
+                                , body = Http.stringBody "application/json" encodedRequest
+                                , expect = Http.expectString GotSaveResponse
+                                }
+                    in
+                    { model = model
+                    , command = request
+                    }
 
-                encodedRequest =
-                    requestEncoder model.folderName model.files
-                        |> Encode.encode 0
+                New ->
+                    let
+                        encodedRequest =
+                            Encode.encode 0
+                                <| Data.createNewProjectRequestEncoder model.files
 
-                _ =
-                    Debug.log "encodedRequest" (Debug.toString encodedRequest)
+                        -- _ =
+                        --     Debug.log "encodedRequest" (Debug.toString encodedRequest)
+                        -- request =
+                        --     Http.post
+                        --         { url = "/api/create"
+                        --         , body = 
+                        --         , expect = Http.jsonBody (\data -> GotResponse (Decode.decodeValue Data.newProjectResultDecoder data))
+                        --         }               
+                        postCreateNewProject : Cmd Msg
+                        postCreateNewProject =
+                            Http.post
+                                { url = "/api/create"
+                                , body = Http.stringBody "application/json" encodedRequest
+                                , expect = Http.expectJson GotCreateNewProjectResponse folderNameDecoder
+                                }
 
-                request =
-                    Http.post
-                        { url = "/api/save"
-                        , body = Http.stringBody "application/json" encodedRequest
-                        , expect = Http.expectString GotResponse
-                        }
-            in
-            { model = model
-            , command = request
-            }
+                        folderNameDecoder : Decode.Decoder String
+                        folderNameDecoder =
+                            Decode.field "folderName" Decode.string
+                    in
+                    { model = model
+                    , command = postCreateNewProject
+                    }
 
-        GotResponse response ->
+        GotSaveResponse response ->
             let
                 _ =
                     Debug.log "response" response
             in
-            { model = model
+            { model = { model | reloadIframeHack = model.reloadIframeHack + 1 }
             , command = Cmd.none
             }
+
+        GotCreateNewProjectResponse resp ->
+            let
+                _ =
+                    Debug.log "resp" resp
+            in
+            case resp of
+                Ok folderName ->
+                    { model = model
+                    , command = Browser.Navigation.load ("/project/" ++ folderName)
+                    }
+
+                Err err ->
+                    { model = model
+                    , command = Cmd.none
+                    }
+
+        OnCodeEditorChanged code ->
+            case model.selectedFile of
+                Just file ->
+                    let
+                        updatedFile =
+                            { file | content = code }
+
+                        updatedFiles =
+                            Array.map
+                                (\f ->
+                                    if f.name == file.name then
+                                        updatedFile
+                                    else
+                                        f
+                                )
+                                model.files
+
+                        updatedModel =
+                            { model | files = updatedFiles }
+                    in
+                    { model = updatedModel
+                    , command = Cmd.none
+                    }
+
+                Nothing ->
+                    { model = model
+                    , command = Cmd.none
+                    }

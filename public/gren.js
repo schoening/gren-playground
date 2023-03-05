@@ -4545,6 +4545,98 @@ function _Browser_load(url) {
 }
 
 
+var _WebStorage_length = function (useLocalStorage) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            var length = _WebStorage_getStore(useLocalStorage).length;
+        } catch (e) {
+            return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$AccessError));
+        }
+
+        return callback(_Scheduler_succeed(length));
+    });
+};
+
+var _WebStorage_key = F2(function(useLocalStorage, index) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            var key = _WebStorage_getStore(useLocalStorage).key(index);
+
+            if (key == null) {
+                return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$NoValue));
+            } else {
+                return callback(_Scheduler_succeed(key));
+            }
+        } catch (e) {
+            return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$ReadBlocked));
+        }
+    });
+});
+
+var _WebStorage_get = F2(function(useLocalStorage, key) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            var item = _WebStorage_getStore(useLocalStorage).getItem(key);
+
+            if (item == null) {
+                return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$NoValue));
+            } else {
+                return callback(_Scheduler_succeed(item));
+            }
+        } catch (e) {
+            return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$ReadBlocked));
+        }
+    });
+});
+
+var _WebStorage_set = F3(function (useLocalStorage, key, value) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            _WebStorage_getStore(useLocalStorage).setItem(key, value);
+        } catch (err) {
+            if (err.name === 'QuotaExceededError') {
+                return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$QuotaExceeded));
+            } else {
+                return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$WriteBlocked));
+            }
+        }
+
+        return callback(_Scheduler_succeed({}));
+    })
+});
+
+var _WebStorage_remove = F2(function (useLocalStorage, key) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            _WebStorage_getStore(useLocalStorage).removeItem(key);
+        } catch (err) {
+            return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$AccessError));
+        }
+
+        return callback(_Scheduler_succeed({}));
+    })
+});
+
+var _WebStorage_clear = function (useLocalStorage) {
+    return _Scheduler_binding(function (callback) {
+        try {
+            _WebStorage_getStore(useLocalStorage).clear();
+        } catch (err) {
+            return callback(_Scheduler_fail($gren_lang$web_storage$WebStorage$AccessError));
+        }
+
+        return callback(_Scheduler_succeed({}));
+    });
+};
+
+
+// Private functions
+
+var _WebStorage_getStore = function(persist) {
+    return persist ? window.localStorage : window.sessionStorage;
+}
+
+
 // SEND REQUEST
 
 var _Http_toTask = F3(function (router, toTask, request) {
@@ -9610,19 +9702,68 @@ var $gren_lang$core$Basics$never = function (_v0) {
 	}
 };
 var $gren_lang$browser$Browser$element = _Browser_element;
-var $author$project$Init$initialFiles = [
-	{content: 'module Main exposing ( main )\n\nimport Html as H\n\nmain =\n    H.div\n        []\n        [ H.text "Hello, World!!!!!!!!!" ]', extension: 'gren', name: 'Main'}
-];
+var $author$project$Model$FolderName = function (a) {
+	return {$: 'FolderName', a: a};
+};
+var $author$project$Model$New = {$: 'New'};
+var $author$project$Message$OnGotSelectedFileFromLocalStorage = function (a) {
+	return {$: 'OnGotSelectedFileFromLocalStorage', a: a};
+};
+var $gren_lang$core$Task$onError = _Scheduler_onError;
+var $gren_lang$core$Task$attempt = F2(
+	function (resultToMessage, task) {
+		return $gren_lang$core$Task$command(
+			$gren_lang$core$Task$Perform(
+				A2(
+					$gren_lang$core$Task$onError,
+					A2(
+						$gren_lang$core$Basics$composeL,
+						A2($gren_lang$core$Basics$composeL, $gren_lang$core$Task$succeed, resultToMessage),
+						$gren_lang$core$Result$Err),
+					A2(
+						$gren_lang$core$Task$andThen,
+						A2(
+							$gren_lang$core$Basics$composeL,
+							A2($gren_lang$core$Basics$composeL, $gren_lang$core$Task$succeed, resultToMessage),
+							$gren_lang$core$Result$Ok),
+						task))));
+	});
+var $gren_lang$web_storage$WebStorage$AccessError = {$: 'AccessError'};
+var $gren_lang$web_storage$WebStorage$NoValue = {$: 'NoValue'};
+var $gren_lang$web_storage$WebStorage$QuotaExceeded = {$: 'QuotaExceeded'};
+var $gren_lang$web_storage$WebStorage$ReadBlocked = {$: 'ReadBlocked'};
+var $gren_lang$web_storage$WebStorage$WriteBlocked = {$: 'WriteBlocked'};
+var $gren_lang$web_storage$Internal$WebStorage$get = _WebStorage_get;
+var $gren_lang$web_storage$LocalStorage$get = function (key) {
+	return A2($gren_lang$web_storage$Internal$WebStorage$get, true, key);
+};
 var $gren_lang$core$Debug$log = _Debug_log;
 var $gren_lang$core$Debug$toString = _Debug_toString;
 var $author$project$Init$init = function (flags) {
+	var initialModel = {
+		files: flags.files,
+		folderName: (flags.folderName === 'new') ? $author$project$Model$New : $author$project$Model$FolderName(flags.folderName),
+		reloadIframeHack: 0,
+		selectedFile: $gren_lang$core$Maybe$Nothing,
+		sidebarWidth: 200
+	};
+	var folderName = function () {
+		var _v1 = initialModel.folderName;
+		if (_v1.$ === 'New') {
+			return 'new';
+		} else {
+			var name = _v1.a;
+			return name;
+		}
+	}();
+	var getSelectedFile = $gren_lang$web_storage$LocalStorage$get('selected-file' + ('_' + folderName));
 	var _v0 = A2(
 		$gren_lang$core$Debug$log,
 		'flags',
 		$gren_lang$core$Debug$toString(flags));
 	return {
-		command: $gren_lang$core$Platform$Cmd$none,
-		model: {files: $author$project$Init$initialFiles, folderName: flags.folderName, selectedFile: $gren_lang$core$Maybe$Nothing, sidebarWidth: 200}
+		command: A2($gren_lang$core$Task$attempt, $author$project$Message$OnGotSelectedFileFromLocalStorage, getSelectedFile),
+		model: initialModel
 	};
 };
 var $gren_lang$core$Platform$Sub$batch = _Platform_batch;
@@ -9631,8 +9772,41 @@ var $gren_lang$core$Platform$Sub$none = $gren_lang$core$Platform$Sub$batch(
 var $author$project$Subscription$subscriptions = function (model) {
 	return $gren_lang$core$Platform$Sub$none;
 };
-var $author$project$Message$GotResponse = function (a) {
-	return {$: 'GotResponse', a: a};
+var $author$project$Message$GotCreateNewProjectResponse = function (a) {
+	return {$: 'GotCreateNewProjectResponse', a: a};
+};
+var $author$project$Message$GotSaveResponse = function (a) {
+	return {$: 'GotSaveResponse', a: a};
+};
+var $author$project$Message$NoOp = {$: 'NoOp'};
+var $author$project$Data$fileEncoder = function (file) {
+	return $gren_lang$core$Json$Encode$object(
+		[
+			{
+			key: 'name',
+			value: $gren_lang$core$Json$Encode$string(file.name)
+		},
+			{
+			key: 'extension',
+			value: $gren_lang$core$Json$Encode$string('gren')
+		},
+			{
+			key: 'content',
+			value: $gren_lang$core$Json$Encode$string(file.content)
+		}
+		]);
+};
+var $author$project$Data$filesEncoder = function (files) {
+	return A2($gren_lang$core$Json$Encode$array, $author$project$Data$fileEncoder, files);
+};
+var $author$project$Data$createNewProjectRequestEncoder = function (files) {
+	return $gren_lang$core$Json$Encode$object(
+		[
+			{
+			key: 'files',
+			value: $author$project$Data$filesEncoder(files)
+		}
+		]);
 };
 var $gren_lang$browser$Http$BadStatus_ = F2(
 	function (a, b) {
@@ -9669,17 +9843,6 @@ var $gren_lang$browser$Http$expectStringResponse = F2(
 			$gren_lang$core$Basics$identity,
 			A2($gren_lang$core$Basics$composeR, toResult, toMsg));
 	});
-var $gren_lang$browser$Http$BadBody = function (a) {
-	return {$: 'BadBody', a: a};
-};
-var $gren_lang$browser$Http$BadStatus = function (a) {
-	return {$: 'BadStatus', a: a};
-};
-var $gren_lang$browser$Http$BadUrl = function (a) {
-	return {$: 'BadUrl', a: a};
-};
-var $gren_lang$browser$Http$NetworkError = {$: 'NetworkError'};
-var $gren_lang$browser$Http$Timeout = {$: 'Timeout'};
 var $gren_lang$core$Result$mapError = F2(
 	function (f, result) {
 		if (result.$ === 'Ok') {
@@ -9691,6 +9854,17 @@ var $gren_lang$core$Result$mapError = F2(
 				f(e));
 		}
 	});
+var $gren_lang$browser$Http$BadBody = function (a) {
+	return {$: 'BadBody', a: a};
+};
+var $gren_lang$browser$Http$BadStatus = function (a) {
+	return {$: 'BadStatus', a: a};
+};
+var $gren_lang$browser$Http$BadUrl = function (a) {
+	return {$: 'BadUrl', a: a};
+};
+var $gren_lang$browser$Http$NetworkError = {$: 'NetworkError'};
+var $gren_lang$browser$Http$Timeout = {$: 'Timeout'};
 var $gren_lang$browser$Http$resolve = F2(
 	function (toResult, response) {
 		switch (response.$) {
@@ -9714,12 +9888,37 @@ var $gren_lang$browser$Http$resolve = F2(
 					toResult(body));
 		}
 	});
+var $gren_lang$browser$Http$expectJson = F2(
+	function (toMsg, decoder) {
+		return A2(
+			$gren_lang$browser$Http$expectStringResponse,
+			toMsg,
+			$gren_lang$browser$Http$resolve(
+				function (string) {
+					return A2(
+						$gren_lang$core$Result$mapError,
+						$gren_lang$core$Json$Decode$errorToString,
+						A2($gren_lang$core$Json$Decode$decodeString, decoder, string));
+				}));
+	});
 var $gren_lang$browser$Http$expectString = function (toMsg) {
 	return A2(
 		$gren_lang$browser$Http$expectStringResponse,
 		toMsg,
 		$gren_lang$browser$Http$resolve($gren_lang$core$Result$Ok));
 };
+var $gren_lang$core$Array$filter = F2(
+	function (pred, array) {
+		return A3(
+			$gren_lang$core$Array$foldl,
+			F2(
+				function (v, acc) {
+					return pred(v) ? A2($gren_lang$core$Array$pushLast, v, acc) : acc;
+				}),
+			[],
+			array);
+	});
+var $gren_lang$browser$Browser$Navigation$load = _Browser_load;
 var $gren_lang$browser$Http$Request = function (a) {
 	return {$: 'Request', a: a};
 };
@@ -9883,6 +10082,25 @@ var $gren_lang$browser$Http$post = function (r) {
 			url: r.url
 		});
 };
+var $author$project$Data$saveRequestEncoder = F2(
+	function (folderName, files) {
+		return $gren_lang$core$Json$Encode$object(
+			[
+				{
+				key: 'folderName',
+				value: $gren_lang$core$Json$Encode$string(folderName)
+			},
+				{
+				key: 'files',
+				value: $author$project$Data$filesEncoder(files)
+			}
+			]);
+	});
+var $gren_lang$web_storage$Internal$WebStorage$set = _WebStorage_set;
+var $gren_lang$web_storage$LocalStorage$set = F2(
+	function (key, value) {
+		return A3($gren_lang$web_storage$Internal$WebStorage$set, true, key, value);
+	});
 var $gren_lang$browser$Http$stringBody = _Http_pair;
 var $author$project$Update$update = F2(
 	function (msg, model) {
@@ -9894,71 +10112,142 @@ var $author$project$Update$update = F2(
 					{
 						selectedFile: $gren_lang$core$Maybe$Just(file)
 					});
-				return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
-			case 'OnSaveButtonClicked':
-				var fileEncoder = function (file) {
-					return $gren_lang$core$Json$Encode$object(
-						[
-							{
-							key: 'name',
-							value: $gren_lang$core$Json$Encode$string(file.name)
+				var folderName = function () {
+					var _v2 = model.folderName;
+					if (_v2.$ === 'FolderName') {
+						var name = _v2.a;
+						return name;
+					} else {
+						return 'new';
+					}
+				}();
+				return {
+					command: A2(
+						$gren_lang$core$Task$attempt,
+						function (result) {
+							var _v1 = A2(
+								$gren_lang$core$Debug$log,
+								'result',
+								$gren_lang$core$Debug$toString(result));
+							return $author$project$Message$NoOp;
 						},
-							{
-							key: 'extension',
-							value: $gren_lang$core$Json$Encode$string('gren')
-						},
-							{
-							key: 'content',
-							value: $gren_lang$core$Json$Encode$string(file.content)
-						}
-						]);
+						A2($gren_lang$web_storage$LocalStorage$set, 'selected-file' + ('_' + folderName), file.name)),
+					model: updatedModel
 				};
-				var filesEncoder = function (files) {
-					return A2($gren_lang$core$Json$Encode$array, fileEncoder, files);
-				};
-				var requestEncoder = F2(
-					function (folderName, files) {
-						return $gren_lang$core$Json$Encode$object(
-							[
-								{
-								key: 'folderName',
-								value: $gren_lang$core$Json$Encode$string(folderName)
-							},
-								{
-								key: 'files',
-								value: filesEncoder(files)
-							}
-							]);
-					});
-				var encodedRequest = A2(
-					$gren_lang$core$Json$Encode$encode,
-					0,
-					A2(requestEncoder, model.folderName, model.files));
-				var request = $gren_lang$browser$Http$post(
-					{
-						body: A2($gren_lang$browser$Http$stringBody, 'application/json', encodedRequest),
-						expect: $gren_lang$browser$Http$expectString($author$project$Message$GotResponse),
-						url: '/api/save'
-					});
-				var _v1 = A2(
-					$gren_lang$core$Debug$log,
-					'encodedRequest',
-					$gren_lang$core$Debug$toString(encodedRequest));
-				return {command: request, model: model};
-			default:
-				var response = msg.a;
-				var _v2 = A2($gren_lang$core$Debug$log, 'response', response);
+			case 'NoOp':
 				return {command: $gren_lang$core$Platform$Cmd$none, model: model};
+			case 'OnGotSelectedFileFromLocalStorage':
+				var result = msg.a;
+				if (result.$ === 'Ok') {
+					var fileName = result.a;
+					var selectedFile = A2(
+						$gren_lang$core$Array$get,
+						0,
+						A2(
+							$gren_lang$core$Array$filter,
+							function (f) {
+								return _Utils_eq(f.name, fileName);
+							},
+							model.files));
+					return {
+						command: $gren_lang$core$Platform$Cmd$none,
+						model: _Utils_update(
+							model,
+							{selectedFile: selectedFile})
+					};
+				} else {
+					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
+				}
+			case 'OnSaveButtonClicked':
+				var _v4 = model.folderName;
+				if (_v4.$ === 'FolderName') {
+					var fName = _v4.a;
+					var encodedRequest = A2(
+						$gren_lang$core$Json$Encode$encode,
+						0,
+						A2($author$project$Data$saveRequestEncoder, fName, model.files));
+					var request = $gren_lang$browser$Http$post(
+						{
+							body: A2($gren_lang$browser$Http$stringBody, 'application/json', encodedRequest),
+							expect: $gren_lang$browser$Http$expectString($author$project$Message$GotSaveResponse),
+							url: '/api/save'
+						});
+					var _v5 = A2(
+						$gren_lang$core$Debug$log,
+						'encodedRequest',
+						$gren_lang$core$Debug$toString(encodedRequest));
+					return {command: request, model: model};
+				} else {
+					var folderNameDecoder = A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string);
+					var encodedRequest = A2(
+						$gren_lang$core$Json$Encode$encode,
+						0,
+						$author$project$Data$createNewProjectRequestEncoder(model.files));
+					var postCreateNewProject = $gren_lang$browser$Http$post(
+						{
+							body: A2($gren_lang$browser$Http$stringBody, 'application/json', encodedRequest),
+							expect: A2($gren_lang$browser$Http$expectJson, $author$project$Message$GotCreateNewProjectResponse, folderNameDecoder),
+							url: '/api/create'
+						});
+					return {command: postCreateNewProject, model: model};
+				}
+			case 'GotSaveResponse':
+				var response = msg.a;
+				var _v6 = A2($gren_lang$core$Debug$log, 'response', response);
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{reloadIframeHack: model.reloadIframeHack + 1})
+				};
+			case 'GotCreateNewProjectResponse':
+				var resp = msg.a;
+				var _v7 = A2($gren_lang$core$Debug$log, 'resp', resp);
+				if (resp.$ === 'Ok') {
+					var folderName = resp.a;
+					return {
+						command: $gren_lang$browser$Browser$Navigation$load('/project/' + folderName),
+						model: model
+					};
+				} else {
+					var err = resp.a;
+					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
+				}
+			default:
+				var code = msg.a;
+				var _v9 = model.selectedFile;
+				if (_v9.$ === 'Just') {
+					var file = _v9.a;
+					var updatedFile = _Utils_update(
+						file,
+						{content: code});
+					var updatedFiles = A2(
+						$gren_lang$core$Array$map,
+						function (f) {
+							return _Utils_eq(f.name, file.name) ? updatedFile : f;
+						},
+						model.files);
+					var updatedModel = _Utils_update(
+						model,
+						{files: updatedFiles});
+					return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
+				} else {
+					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
+				}
 		}
 	});
-var $author$project$Message$OnSaveButtonClicked = {$: 'OnSaveButtonClicked'};
+var $author$project$Message$OnCodeEditorChanged = function (a) {
+	return {$: 'OnCodeEditorChanged', a: a};
+};
+var $gren_lang$browser$Html$textarea = $gren_lang$browser$Html$node('textarea');
 var $author$project$View$viewCodeEditor = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
 		[
-			$gren_lang$browser$Html$Attributes$class('h-screen'),
+			$gren_lang$browser$Html$Attributes$class('flex-1'),
 			$gren_lang$browser$Html$Attributes$class('bg-slate-500'),
-			$gren_lang$browser$Html$Attributes$class('w-full')
+			$gren_lang$browser$Html$Attributes$class('w-full'),
+			$gren_lang$browser$Html$Events$onInput($author$project$Message$OnCodeEditorChanged)
 		],
 		function () {
 			var _v0 = model.selectedFile;
@@ -9966,9 +10255,10 @@ var $author$project$View$viewCodeEditor = function (model) {
 				var file = _v0.a;
 				return [
 					A2(
-					$gren_lang$browser$Html$code,
+					$gren_lang$browser$Html$textarea,
 					[
-						$gren_lang$browser$Html$Attributes$class('whitespace-pre-wrap')
+						$gren_lang$browser$Html$Attributes$class('whitespace-pre-wrap'),
+						$gren_lang$browser$Html$Attributes$class('w-full h-full')
 					],
 					[
 						$gren_lang$browser$Html$text(file.content)
@@ -9985,61 +10275,94 @@ var $gren_lang$browser$Html$iframe = $gren_lang$browser$Html$node('iframe');
 var $gren_lang$browser$Html$Attributes$src = function (url) {
 	return A2($gren_lang$browser$Html$Attributes$stringProperty, 'src', url);
 };
-var $author$project$View$viewResult = function (model) {
+var $author$project$View$viewIframe = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
 		[
-			$gren_lang$browser$Html$Attributes$class('h-screen'),
+			$gren_lang$browser$Html$Attributes$class('flex-1'),
 			$gren_lang$browser$Html$Attributes$class('w-full'),
-			$gren_lang$browser$Html$Attributes$class('border-2 border-red-500')
+			$gren_lang$browser$Html$Attributes$class('border-2 border-red-500'),
+			$gren_lang$browser$Html$Attributes$class('bg-white')
 		],
-		[
-			A2(
-			$gren_lang$browser$Html$iframe,
-			[
-				$gren_lang$browser$Html$Attributes$class('w-full h-full'),
-				$gren_lang$browser$Html$Attributes$src('/iframe/' + model.folderName)
-			],
-			[])
-		]);
+		function () {
+			var _v0 = model.folderName;
+			if (_v0.$ === 'FolderName') {
+				var folderName = _v0.a;
+				return [
+					A2(
+					$gren_lang$browser$Html$iframe,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full h-full'),
+						$gren_lang$browser$Html$Attributes$src(
+						'/iframe/' + (folderName + ('?' + $gren_lang$core$String$fromInt(model.reloadIframeHack))))
+					],
+					[])
+				];
+			} else {
+				return [
+					A2(
+					$gren_lang$browser$Html$div,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full h-full')
+					],
+					[])
+				];
+			}
+		}());
 };
-var $gren_lang$browser$Html$Attributes$action = function (uri) {
-	return A2($gren_lang$browser$Html$Attributes$stringProperty, 'action', uri);
-};
-var $gren_lang$browser$Html$form = $gren_lang$browser$Html$node('form');
-var $gren_lang$browser$Html$Attributes$method = $gren_lang$browser$Html$Attributes$stringProperty('method');
-var $gren_lang$browser$Html$Attributes$name = $gren_lang$browser$Html$Attributes$stringProperty('name');
-var $author$project$View$viewSaveForm = function (model) {
+var $author$project$Message$OnSaveButtonClicked = {$: 'OnSaveButtonClicked'};
+var $author$project$View$viewRightTopBar = function (model) {
 	return A2(
-		$gren_lang$browser$Html$form,
+		$gren_lang$browser$Html$div,
 		[
-			$gren_lang$browser$Html$Attributes$method('post'),
-			$gren_lang$browser$Html$Attributes$action('/api/save')
+			$gren_lang$browser$Html$Attributes$class('w-full h-8'),
+			$gren_lang$browser$Html$Attributes$class('bg-slate-600')
 		],
 		[
-			A2(
-			$gren_lang$browser$Html$input,
-			[
-				$gren_lang$browser$Html$Attributes$name('folderName'),
-				$gren_lang$browser$Html$Attributes$value('df9352c4-e9e5-4fe8-9ee3-c5b418970bff_1')
-			],
-			[]),
-			A2(
-			$gren_lang$browser$Html$input,
-			[
-				$gren_lang$browser$Html$Attributes$name('file[]'),
-				$gren_lang$browser$Html$Attributes$value('Main.gren')
-			],
-			[]),
 			A2(
 			$gren_lang$browser$Html$button,
 			[
-				$gren_lang$browser$Html$Attributes$type_('submit')
+				$gren_lang$browser$Html$Attributes$class('h-8'),
+				$gren_lang$browser$Html$Attributes$class('text-white'),
+				$gren_lang$browser$Html$Attributes$class('p-2'),
+				$gren_lang$browser$Html$Attributes$class('bg-orange-500'),
+				$gren_lang$browser$Html$Attributes$class('flex justify-center items-center'),
+				$gren_lang$browser$Html$Events$onClick($author$project$Message$OnSaveButtonClicked)
 			],
 			[
-				$gren_lang$browser$Html$text('SAVE!!!')
+				$gren_lang$browser$Html$text('Save')
 			])
 		]);
+};
+var $author$project$View$viewRight = function (model) {
+	return A2(
+		$gren_lang$browser$Html$div,
+		[
+			$gren_lang$browser$Html$Attributes$class('w-full flex-1'),
+			$gren_lang$browser$Html$Attributes$class('flex flex-col')
+		],
+		[
+			$author$project$View$viewRightTopBar(model),
+			A2(
+			$gren_lang$browser$Html$div,
+			[
+				$gren_lang$browser$Html$Attributes$class('w-full'),
+				$gren_lang$browser$Html$Attributes$class('flex-1 flex flex-row')
+			],
+			[
+				$author$project$View$viewCodeEditor(model),
+				$author$project$View$viewIframe(model)
+			])
+		]);
+};
+var $author$project$View$viewSideBarTopPanel = function (model) {
+	return A2(
+		$gren_lang$browser$Html$div,
+		[
+			$gren_lang$browser$Html$Attributes$class('w-full h-8'),
+			$gren_lang$browser$Html$Attributes$class('bg-green-500')
+		],
+		[]);
 };
 var $author$project$Message$OnSidebarFileClicked = function (a) {
 	return {$: 'OnSidebarFileClicked', a: a};
@@ -10083,7 +10406,7 @@ var $author$project$View$viewSidebar = function (model) {
 			$gren_lang$core$String$fromInt(model.sidebarWidth) + 'px')
 		],
 		[
-			$author$project$View$viewSaveForm(model),
+			$author$project$View$viewSideBarTopPanel(model),
 			$author$project$View$viewSidebarFiles(model)
 		]);
 };
@@ -10097,16 +10420,7 @@ var $author$project$View$view = function (model) {
 		],
 		[
 			$author$project$View$viewSidebar(model),
-			$author$project$View$viewCodeEditor(model),
-			$author$project$View$viewResult(model),
-			A2(
-			$gren_lang$browser$Html$button,
-			[
-				$gren_lang$browser$Html$Events$onClick($author$project$Message$OnSaveButtonClicked)
-			],
-			[
-				$gren_lang$browser$Html$text('Save via AJAX request')
-			])
+			$author$project$View$viewRight(model)
 		]);
 };
 var $author$project$Main$main = $gren_lang$browser$Browser$element(
@@ -10143,4 +10457,4 @@ _Platform_export({'Main':{'init':$author$project$Main$main(
 							},
 							A2($gren_lang$core$Json$Decode$field, 'name', $gren_lang$core$Json$Decode$string)))));
 		},
-		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.File":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.File"],"OnSaveButtonClicked":[],"GotResponse":["Result.Result Http.Error String.String"]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));
+		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.File":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.File"],"OnGotSelectedFileFromLocalStorage":["Result.Result WebStorage.ReadError String.String"],"OnSaveButtonClicked":[],"GotCreateNewProjectResponse":["Result.Result Http.Error String.String"],"GotSaveResponse":["Result.Result Http.Error String.String"],"OnCodeEditorChanged":["String.String"],"NoOp":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"WebStorage.ReadError":{"args":[],"tags":{"NoValue":[],"ReadBlocked":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));

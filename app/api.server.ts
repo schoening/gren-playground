@@ -51,7 +51,7 @@ export const getFiles = (
               return reject(fileReadError);
             }
             const fileData = {
-              name: fileName,
+              name: path.parse(fileName).name,
               extension: path.extname(fileName),
               content: data,
             };

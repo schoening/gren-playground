@@ -1,8 +1,12 @@
-import { json, LoaderFunction } from "@remix-run/node";
+import { json, LinksFunction, LoaderFunction } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { useEffect } from "react";
 import * as E from "fp-ts/lib/Either";
 import * as api from "~/api.server";
+
+export const links: LinksFunction = () => {
+  return [{ rel: "stylesheet", href: "/output.css" }];
+};
 
 export const loader: LoaderFunction = async ({ params }) => {
   console.log("loader /project/$folderName.tsx");

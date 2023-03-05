@@ -62,6 +62,7 @@ export default function IframePage() {
   return (
     <div>
       <div id="gren"></div>
+      <script src="https://cdn.tailwindcss.com" />
       <script src={`/api/scriptTag/${folderName}`} />
     </div>
   );

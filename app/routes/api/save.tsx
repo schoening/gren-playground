@@ -13,6 +13,8 @@ export const action: ActionFunction = async ({ request }) => {
 
   const { folderName, files } = jsonResult;
 
+  console.log("/api/save", files);
+
   await api.deleteFolder(`./project/${folderName}/src`)();
   await api.deleteFile(`./project/${folderName}/gren.js`)();
   await api.deleteFile(`./project/${folderName}/error.txt`)();
