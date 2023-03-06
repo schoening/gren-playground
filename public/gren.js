@@ -10735,7 +10735,10 @@ var $author$project$View$viewSidebarFile = F2(
 				$gren_lang$browser$Html$Events$onClick(
 				$author$project$Message$OnSidebarFileClicked(file))
 			],
-			[
+			(file.name === 'Main') ? [
+				$gren_lang$browser$Html$text(
+				_Utils_ap(file.name, file.extension))
+			] : [
 				$gren_lang$browser$Html$text(
 				_Utils_ap(file.name, file.extension)),
 				A2(

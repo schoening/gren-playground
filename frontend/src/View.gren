@@ -202,18 +202,23 @@ viewSidebarFile model file =
             ]
         , HE.onClick (OnSidebarFileClicked file)
         ]
-        [ H.text (file.name ++ file.extension)
-        , H.button
-            [ HE.onClick (OnSideBarDeleteFileButtonClicked file.name)
+        (if file.name == "Main" then
+            [ H.text (file.name ++ file.extension)
             ]
-            [ H.text "DELETE"
+         else
+            [ H.text (file.name ++ file.extension)
+            , H.button
+                [ HE.onClick (OnSideBarDeleteFileButtonClicked file.name)
+                ]
+                [ H.text "DELETE"
+                ]
+            , H.button
+                [ HE.onClick (OnUpdateFileNameButtonClicked file.name)
+                ]
+                [ H.text "UPDATE"
+                ]
             ]
-        , H.button
-            [ HE.onClick (OnUpdateFileNameButtonClicked file.name)
-            ]
-            [ H.text "UPDATE"
-            ]
-        ]
+        )
 
 
 
