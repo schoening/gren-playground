@@ -4,11 +4,11 @@ module Model exposing (..)
 
 type alias Flags =
     { folderName : String
-    , files : Array File
+    , files : Array GrenFile
     }
 
 
-type alias File =
+type alias GrenFile =
     { name : String
     , extension : String
     , content : String
@@ -22,8 +22,19 @@ type FolderName
 
 type alias Model =
     { sidebarWidth : Int
-    , files : Array File
-    , selectedFile : Maybe File
+    , files : Array GrenFile
+    , selectedFileName : Maybe String
     , folderName : FolderName
     , reloadIframeHack : Int
+    , newFileName : String
+    , showNewFileModal :
+        Bool
+            -- UPDATE FILE
+    , showUpdateFileNameModal :
+        Maybe
+            { oldName : String
+            , newName : String
+            }
+            -- DELETE FILE
+    , showDeleteFileModal : Maybe String
     }

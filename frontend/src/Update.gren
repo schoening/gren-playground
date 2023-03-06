@@ -22,7 +22,7 @@ update msg model =
         OnSidebarFileClicked file ->
             let
                 updatedModel =
-                    { model | selectedFile = Just file }
+                    { model | selectedFileName = Just file.name }
 
                 folderName =
                     case model.folderName of
@@ -34,15 +34,104 @@ update msg model =
             in
             { model = updatedModel
             , command =
-                Task.attempt
-                    (\result ->
-                        let
-                            _ =
-                                Debug.log "result" (Debug.toString result)
-                        in
-                        NoOp
-                    )
-                    (LocalStorage.set ("selected-file" ++ "_" ++ folderName) file.name)
+                -- Task.attempt
+                --     (\result ->
+                --         let
+                --             _ =
+                --                 Debug.log "result" (Debug.toString result)
+                --         in
+                --         NoOp
+                --     )
+                --     (LocalStorage.set ("selected-file" ++ "_" ++ folderName) file.name)
+                Cmd.none
+            }
+
+        -- UPDATE FILE NAME
+        OnUpdateFileNameButtonClicked fileName ->
+            { model =
+                { model
+                    | showUpdateFileNameModal =
+                        Just
+                            { oldName = fileName
+                            , newName = fileName
+                            }
+                }
+            , command = Cmd.none
+            }
+
+        OnUpdateFileNameModalFileNameChanged updatedFileName ->
+            { model =
+                { model
+                    | showUpdateFileNameModal =
+                        Maybe.map
+                            (\{ oldName } ->
+                                Just
+                                    { oldName = oldName
+                                    , newName = updatedFileName
+                                    }
+                            )
+                            model.showUpdateFileNameModal
+                            |> Maybe.withDefault Nothing
+                }
+            , command = Cmd.none
+            }
+
+        OnUpdateFileNameModalConfirmButtonClicked ->
+            let
+                updatedFiles =
+                    Maybe.map
+                        (\{ oldName, newName } ->
+                            Array.map
+                                (\f ->
+                                    if f.name == oldName then
+                                        { f | name = newName }
+                                    else
+                                        f
+                                )
+                                model.files
+                        )
+                        model.showUpdateFileNameModal
+                        |> Maybe.withDefault model.files
+            in
+            { model =
+                { model
+                    | showUpdateFileNameModal = Nothing
+                    , files = updatedFiles
+                }
+            , command = Cmd.none
+            }
+
+        OnUpdateFileNameModalCancelButtonClicked ->
+            { model = { model | showUpdateFileNameModal = Nothing }
+            , command = Cmd.none
+            }
+
+        -- DELETE FILE
+        OnSideBarDeleteFileButtonClicked fileName ->
+            { model = { model | showDeleteFileModal = Just fileName }
+            , command = Cmd.none
+            }
+
+        OnDeleteFileModalConfirmButtonClicked fileName ->
+            let
+                updatedFiles =
+                    Array.filter (\f -> f.name /= fileName) model.files
+
+                updatedModel =
+                    { model
+                        | files = updatedFiles
+                        , showDeleteFileModal =
+                            Nothing
+                                -- , updatedFileName = ""
+                    }
+            in
+            { model = updatedModel
+            , command = Cmd.none
+            }
+
+        OnDeleteFileModalCancelButtonClicked ->
+            { model = { model | showDeleteFileModal = Nothing }
+            , command = Cmd.none
             }
 
         NoOp ->
@@ -54,16 +143,22 @@ update msg model =
             case result of
                 Ok fileName ->
                     let
-                        selectedFile =
+                        selectedFileName =
                             Array.filter (\f -> f.name == fileName) model.files
                                 |> Array.get 0
+                                |> Maybe.map (\f -> f.name)
                     in
-                    { model = { model | selectedFile = selectedFile }
+                    { model = { model | selectedFileName = selectedFileName }
                     , command = Cmd.none
                     }
 
                 Err _ ->
-                    { model = model
+                    let
+                        selectedFileName =
+                            Array.findFirst (\f -> f.name == "Main") model.files
+                                |> Maybe.map (\f -> f.name)
+                    in
+                    { model = { model | selectedFileName = selectedFileName }
                     , command = Cmd.none
                     }
 
@@ -145,17 +240,14 @@ update msg model =
                     }
 
         OnCodeEditorChanged code ->
-            case model.selectedFile of
-                Just file ->
+            case model.selectedFileName of
+                Just fileName ->
                     let
-                        updatedFile =
-                            { file | content = code }
-
                         updatedFiles =
                             Array.map
                                 (\f ->
-                                    if f.name == file.name then
-                                        updatedFile
+                                    if f.name == fileName then
+                                        { f | content = code }
                                     else
                                         f
                                 )
@@ -172,3 +264,59 @@ update msg model =
                     { model = model
                     , command = Cmd.none
                     }
+
+        OnNewFileButtonClicked ->
+            { model = { model | showNewFileModal = True }
+            , command = Cmd.none
+            }
+
+        OnNewFileNameChanged name ->
+            { model = { model | newFileName = name }
+            , command = Cmd.none
+            }
+
+        OnNewFileModalCloseButtonClicked ->
+            { model =
+                { model
+                    | newFileName = ""
+                    , showNewFileModal = False
+                }
+            , command = Cmd.none
+            }
+
+        OnNewFileModalSaveButtonClicked ->
+            let
+                newFileName =
+                    model.newFileName
+                        |> String.replace ".gren" ""
+                        |> String.trim
+
+                newFile : GrenFile
+                newFile =
+                    { name = newFileName
+                    , extension = "gren"
+                    , content = ""
+                    }
+
+                fileExists =
+                    Array.any (\f -> f.name == newFileName) model.files
+
+                fileNameEmpty =
+                    newFileName == ""
+
+                updatedFiles =
+                    if fileExists || fileNameEmpty then
+                        model.files
+                    else
+                        Array.pushLast newFile model.files
+
+                updatedModel =
+                    { model
+                        | files = updatedFiles
+                        , newFileName = ""
+                        , showNewFileModal = False
+                    }
+            in
+            { model = updatedModel
+            , command = Cmd.none
+            }

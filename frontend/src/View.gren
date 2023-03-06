@@ -16,7 +16,27 @@ view model =
         ]
         [ viewSidebar model
         , viewRight model
+        , if model.showNewFileModal then
+            viewCreateNewFileModal model
+          else
+            H.text ""
+        , case model.showDeleteFileModal of
+            Just fileName ->
+                viewDeleteFileModal model fileName
+
+            Nothing ->
+                H.text ""
+        , case model.showUpdateFileNameModal of
+            Just { newName } ->
+                viewUpdateFileNameModal model newName
+
+            Nothing ->
+                H.text ""
         ]
+
+
+
+-- VIEW RIGHT
 
 
 viewRight model =
@@ -61,15 +81,30 @@ viewCodeEditor model =
         , HA.class "w-full"
         , HE.onInput OnCodeEditorChanged
         ]
-        (case model.selectedFile of
-            Just file ->
-                [ H.textarea
-                    [ HA.class "whitespace-pre-wrap"
-                    , HA.class "w-full h-full"
-                    ]
-                    [ H.text file.content
-                    ]
-                ]
+        (case model.selectedFileName of
+            Just fileName ->
+                let
+                    maybeFile =
+                        Array.findFirst (\file -> file.name == fileName) model.files
+                in
+                case maybeFile of
+                    Just file ->
+                        let
+                            _ =
+                                Debug.log "file" file
+                        in
+                        [ H.textarea
+                            [ HA.class "whitespace-pre-wrap"
+                            , HA.class "w-full h-full"
+                            , HA.class "pl-2"
+                            , HA.value file.content
+                            ]
+                            []
+                        ]
+
+                    Nothing ->
+                        [ H.text "File not found"
+                        ]
 
             Nothing ->
                 [ H.text "No file selected"
@@ -103,6 +138,10 @@ viewIframe model =
         )
 
 
+
+-- SIDE BAR
+
+
 viewSidebar : Model -> H.Html Msg
 viewSidebar model =
     H.div
@@ -121,7 +160,12 @@ viewSideBarTopPanel model =
         [ HA.class "w-full h-8"
         , HA.class "bg-green-500"
         ]
-        []
+        [ H.button
+            [ HE.onClick OnNewFileButtonClicked
+            ]
+            [ H.text "New File"
+            ]
+        ]
 
 
 viewSidebarFiles : Model -> H.Html Msg
@@ -131,16 +175,178 @@ viewSidebarFiles model =
         , HA.class "bg-blue-600"
         , HA.style "width" (String.fromInt model.sidebarWidth ++ "px")
         ]
-        (Array.map viewSidebarFile model.files)
+        (Array.map (viewSidebarFile model) model.files)
 
 
-viewSidebarFile : File -> H.Html Msg
-viewSidebarFile file =
+viewSidebarFile : Model -> GrenFile -> H.Html Msg
+viewSidebarFile model file =
+    let
+        isSelectedFile =
+            case model.selectedFileName of
+                Just fileName ->
+                    fileName == file.name
+
+                Nothing ->
+                    False
+    in
     H.button
         [ HA.class "h-8"
         , HA.class "bg-blue-700"
         , HA.class "w-full"
+        , HA.class "flex justify-start items-center"
+        , HA.class "pl-2"
+        , HA.classList
+            [ { class = "bg-orange-800 text-white"
+              , enabled = isSelectedFile
+              }
+            ]
         , HE.onClick (OnSidebarFileClicked file)
         ]
-        [ H.text file.name
+        [ H.text (file.name ++ file.extension)
+        , H.button
+            [ HE.onClick (OnSideBarDeleteFileButtonClicked file.name)
+            ]
+            [ H.text "DELETE"
+            ]
+        , H.button
+            [ HE.onClick (OnUpdateFileNameButtonClicked file.name)
+            ]
+            [ H.text "UPDATE"
+            ]
+        ]
+
+
+
+-- MODALS
+
+
+viewModal : Model -> Array (H.Html Msg) -> H.Html Msg
+viewModal model children =
+    H.div
+        [ HA.class "w-full h-full"
+        , HA.class "fixed top-0 left-0"
+        , HA.class "flex justify-center items-center"
+        , HA.class "bg-black bg-opacity-50"
+        ]
+        children
+
+
+viewCreateNewFileModal : Model -> H.Html Msg
+viewCreateNewFileModal model =
+    viewModal
+        model
+        [ H.div
+            [ HA.class "bg-white rounded"
+            , HA.class "p-4 shadow"
+            ]
+            [ H.input
+                [ HA.class "w-full"
+                , HA.class "h-8"
+                , HA.class "bg-white"
+                , HA.class "text-black"
+                , HA.class "p-2"
+                , HA.class "border-2 border-black"
+                , HA.class "border-solid"
+                , HA.class "rounded"
+                , HA.class "outline-none"
+                , HA.placeholder "File name"
+                , HA.value model.newFileName
+                , HE.onInput OnNewFileNameChanged
+                ]
+                []
+            , H.div
+                [ HA.class "w-full"
+                , HA.class "flex justify-between items-center"
+                , HA.class "mt-4"
+                ]
+                [ H.button
+                    [ HE.onClick OnNewFileModalSaveButtonClicked
+                    ]
+                    [ H.text "Create File"
+                    ]
+                , H.button
+                    [ HE.onClick OnNewFileModalCloseButtonClicked
+                    ]
+                    [ H.text "Cancel"
+                    ]
+                ]
+            ]
+        ]
+
+
+viewDeleteFileModal : Model -> String -> H.Html Msg
+viewDeleteFileModal model fileName =
+    viewModal
+        model
+        [ H.div
+            [ HA.class "bg-white rounded"
+            , HA.class "p-4 shadow"
+            ]
+            [ H.div
+                [ HA.class "w-full"
+                , HA.class "flex justify-between items-center"
+                , HA.class "mt-4"
+                ]
+                [ H.text ("Are you sure you want to delete " ++ fileName ++ "?")
+                ]
+            , H.div
+                [ HA.class "w-full"
+                , HA.class "flex justify-between items-center"
+                , HA.class "mt-4"
+                ]
+                [ H.button
+                    [ HE.onClick (OnDeleteFileModalConfirmButtonClicked fileName)
+                    ]
+                    [ H.text "DELETE"
+                    ]
+                , H.button
+                    [ HE.onClick OnDeleteFileModalCancelButtonClicked
+                    ]
+                    [ H.text "Cancel"
+                    ]
+                ]
+            ]
+        ]
+
+
+viewUpdateFileNameModal : Model -> String -> H.Html Msg
+viewUpdateFileNameModal model newFileName =
+    viewModal
+        model
+        [ H.div
+            [ HA.class "bg-white rounded"
+            , HA.class "p-4 shadow"
+            ]
+            [ H.input
+                [ HA.class "w-full"
+                , HA.class "h-8"
+                , HA.class "bg-white"
+                , HA.class "text-black"
+                , HA.class "p-2"
+                , HA.class "border-2 border-black"
+                , HA.class "border-solid"
+                , HA.class "rounded"
+                , HA.class "outline-none"
+                , HA.placeholder "File name"
+                , HA.value newFileName
+                , HE.onInput OnUpdateFileNameModalFileNameChanged
+                ]
+                []
+            , H.div
+                [ HA.class "w-full"
+                , HA.class "flex justify-between items-center"
+                , HA.class "mt-4"
+                ]
+                [ H.button
+                    [ HE.onClick OnUpdateFileNameModalConfirmButtonClicked
+                    ]
+                    [ H.text "Update"
+                    ]
+                , H.button
+                    [ HE.onClick OnUpdateFileNameModalCancelButtonClicked
+                    ]
+                    [ H.text "Cancel"
+                    ]
+                ]
+            ]
         ]

@@ -19,13 +19,23 @@ init flags =
         initialModel =
             { sidebarWidth = 200
             , files = flags.files
-            , selectedFile = Nothing
+            , selectedFileName = Nothing
             , folderName =
                 if flags.folderName == "new" then
                     New
                 else
                     FolderName flags.folderName
-            , reloadIframeHack = 0
+            , reloadIframeHack =
+                0
+                    -- NEW FILE
+            , newFileName = ""
+            , showNewFileModal =
+                False
+                    -- UPDATE FILE NAME
+            , showUpdateFileNameModal =
+                Nothing
+                    -- DELETE FILE
+            , showDeleteFileModal = Nothing
             }
 
         folderName =

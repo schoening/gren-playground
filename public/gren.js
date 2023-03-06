@@ -9743,8 +9743,12 @@ var $author$project$Init$init = function (flags) {
 	var initialModel = {
 		files: flags.files,
 		folderName: (flags.folderName === 'new') ? $author$project$Model$New : $author$project$Model$FolderName(flags.folderName),
+		newFileName: '',
 		reloadIframeHack: 0,
-		selectedFile: $gren_lang$core$Maybe$Nothing,
+		selectedFileName: $gren_lang$core$Maybe$Nothing,
+		showDeleteFileModal: $gren_lang$core$Maybe$Nothing,
+		showNewFileModal: false,
+		showUpdateFileNameModal: $gren_lang$core$Maybe$Nothing,
 		sidebarWidth: 200
 	};
 	var folderName = function () {
@@ -9778,7 +9782,16 @@ var $author$project$Message$GotCreateNewProjectResponse = function (a) {
 var $author$project$Message$GotSaveResponse = function (a) {
 	return {$: 'GotSaveResponse', a: a};
 };
-var $author$project$Message$NoOp = {$: 'NoOp'};
+var $gren_lang$core$Array$findFirst = _Array_findFirst;
+var $gren_lang$core$Array$any = F2(
+	function (fn, array) {
+		var _v0 = A2($gren_lang$core$Array$findFirst, fn, array);
+		if (_v0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
 var $author$project$Data$fileEncoder = function (file) {
 	return $gren_lang$core$Json$Encode$object(
 		[
@@ -9919,6 +9932,16 @@ var $gren_lang$core$Array$filter = F2(
 			array);
 	});
 var $gren_lang$browser$Browser$Navigation$load = _Browser_load;
+var $gren_lang$core$Maybe$map = F2(
+	function (f, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return $gren_lang$core$Maybe$Just(
+				f(value));
+		} else {
+			return $gren_lang$core$Maybe$Nothing;
+		}
+	});
 var $gren_lang$browser$Http$Request = function (a) {
 	return {$: 'Request', a: a};
 };
@@ -10082,6 +10105,13 @@ var $gren_lang$browser$Http$post = function (r) {
 			url: r.url
 		});
 };
+var $gren_lang$core$String$replace = F3(
+	function (before, after, string) {
+		return A2(
+			$gren_lang$core$String$join,
+			after,
+			A2($gren_lang$core$String$split, before, string));
+	});
 var $author$project$Data$saveRequestEncoder = F2(
 	function (folderName, files) {
 		return $gren_lang$core$Json$Encode$object(
@@ -10096,12 +10126,8 @@ var $author$project$Data$saveRequestEncoder = F2(
 			}
 			]);
 	});
-var $gren_lang$web_storage$Internal$WebStorage$set = _WebStorage_set;
-var $gren_lang$web_storage$LocalStorage$set = F2(
-	function (key, value) {
-		return A3($gren_lang$web_storage$Internal$WebStorage$set, true, key, value);
-	});
 var $gren_lang$browser$Http$stringBody = _Http_pair;
+var $gren_lang$core$String$trim = _String_trim;
 var $author$project$Update$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -10110,29 +10136,109 @@ var $author$project$Update$update = F2(
 				var updatedModel = _Utils_update(
 					model,
 					{
-						selectedFile: $gren_lang$core$Maybe$Just(file)
+						selectedFileName: $gren_lang$core$Maybe$Just(file.name)
 					});
 				var folderName = function () {
-					var _v2 = model.folderName;
-					if (_v2.$ === 'FolderName') {
-						var name = _v2.a;
+					var _v1 = model.folderName;
+					if (_v1.$ === 'FolderName') {
+						var name = _v1.a;
 						return name;
 					} else {
 						return 'new';
 					}
 				}();
+				return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
+			case 'OnUpdateFileNameButtonClicked':
+				var fileName = msg.a;
 				return {
-					command: A2(
-						$gren_lang$core$Task$attempt,
-						function (result) {
-							var _v1 = A2(
-								$gren_lang$core$Debug$log,
-								'result',
-								$gren_lang$core$Debug$toString(result));
-							return $author$project$Message$NoOp;
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{
+							showUpdateFileNameModal: $gren_lang$core$Maybe$Just(
+								{newName: fileName, oldName: fileName})
+						})
+				};
+			case 'OnUpdateFileNameModalFileNameChanged':
+				var updatedFileName = msg.a;
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{
+							showUpdateFileNameModal: A2(
+								$gren_lang$core$Maybe$withDefault,
+								$gren_lang$core$Maybe$Nothing,
+								A2(
+									$gren_lang$core$Maybe$map,
+									function (_v2) {
+										var oldName = _v2.oldName;
+										return $gren_lang$core$Maybe$Just(
+											{newName: updatedFileName, oldName: oldName});
+									},
+									model.showUpdateFileNameModal))
+						})
+				};
+			case 'OnUpdateFileNameModalConfirmButtonClicked':
+				var updatedFiles = A2(
+					$gren_lang$core$Maybe$withDefault,
+					model.files,
+					A2(
+						$gren_lang$core$Maybe$map,
+						function (_v3) {
+							var oldName = _v3.oldName;
+							var newName = _v3.newName;
+							return A2(
+								$gren_lang$core$Array$map,
+								function (f) {
+									return _Utils_eq(f.name, oldName) ? _Utils_update(
+										f,
+										{name: newName}) : f;
+								},
+								model.files);
 						},
-						A2($gren_lang$web_storage$LocalStorage$set, 'selected-file' + ('_' + folderName), file.name)),
-					model: updatedModel
+						model.showUpdateFileNameModal));
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{files: updatedFiles, showUpdateFileNameModal: $gren_lang$core$Maybe$Nothing})
+				};
+			case 'OnUpdateFileNameModalCancelButtonClicked':
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{showUpdateFileNameModal: $gren_lang$core$Maybe$Nothing})
+				};
+			case 'OnSideBarDeleteFileButtonClicked':
+				var fileName = msg.a;
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{
+							showDeleteFileModal: $gren_lang$core$Maybe$Just(fileName)
+						})
+				};
+			case 'OnDeleteFileModalConfirmButtonClicked':
+				var fileName = msg.a;
+				var updatedFiles = A2(
+					$gren_lang$core$Array$filter,
+					function (f) {
+						return !_Utils_eq(f.name, fileName);
+					},
+					model.files);
+				var updatedModel = _Utils_update(
+					model,
+					{files: updatedFiles, showDeleteFileModal: $gren_lang$core$Maybe$Nothing});
+				return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
+			case 'OnDeleteFileModalCancelButtonClicked':
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{showDeleteFileModal: $gren_lang$core$Maybe$Nothing})
 				};
 			case 'NoOp':
 				return {command: $gren_lang$core$Platform$Cmd$none, model: model};
@@ -10140,28 +10246,49 @@ var $author$project$Update$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var fileName = result.a;
-					var selectedFile = A2(
-						$gren_lang$core$Array$get,
-						0,
+					var selectedFileName = A2(
+						$gren_lang$core$Maybe$map,
+						function (f) {
+							return f.name;
+						},
 						A2(
-							$gren_lang$core$Array$filter,
+							$gren_lang$core$Array$get,
+							0,
+							A2(
+								$gren_lang$core$Array$filter,
+								function (f) {
+									return _Utils_eq(f.name, fileName);
+								},
+								model.files)));
+					return {
+						command: $gren_lang$core$Platform$Cmd$none,
+						model: _Utils_update(
+							model,
+							{selectedFileName: selectedFileName})
+					};
+				} else {
+					var selectedFileName = A2(
+						$gren_lang$core$Maybe$map,
+						function (f) {
+							return f.name;
+						},
+						A2(
+							$gren_lang$core$Array$findFirst,
 							function (f) {
-								return _Utils_eq(f.name, fileName);
+								return f.name === 'Main';
 							},
 							model.files));
 					return {
 						command: $gren_lang$core$Platform$Cmd$none,
 						model: _Utils_update(
 							model,
-							{selectedFile: selectedFile})
+							{selectedFileName: selectedFileName})
 					};
-				} else {
-					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
 				}
 			case 'OnSaveButtonClicked':
-				var _v4 = model.folderName;
-				if (_v4.$ === 'FolderName') {
-					var fName = _v4.a;
+				var _v5 = model.folderName;
+				if (_v5.$ === 'FolderName') {
+					var fName = _v5.a;
 					var encodedRequest = A2(
 						$gren_lang$core$Json$Encode$encode,
 						0,
@@ -10172,7 +10299,7 @@ var $author$project$Update$update = F2(
 							expect: $gren_lang$browser$Http$expectString($author$project$Message$GotSaveResponse),
 							url: '/api/save'
 						});
-					var _v5 = A2(
+					var _v6 = A2(
 						$gren_lang$core$Debug$log,
 						'encodedRequest',
 						$gren_lang$core$Debug$toString(encodedRequest));
@@ -10193,7 +10320,7 @@ var $author$project$Update$update = F2(
 				}
 			case 'GotSaveResponse':
 				var response = msg.a;
-				var _v6 = A2($gren_lang$core$Debug$log, 'response', response);
+				var _v7 = A2($gren_lang$core$Debug$log, 'response', response);
 				return {
 					command: $gren_lang$core$Platform$Cmd$none,
 					model: _Utils_update(
@@ -10202,7 +10329,7 @@ var $author$project$Update$update = F2(
 				};
 			case 'GotCreateNewProjectResponse':
 				var resp = msg.a;
-				var _v7 = A2($gren_lang$core$Debug$log, 'resp', resp);
+				var _v8 = A2($gren_lang$core$Debug$log, 'resp', resp);
 				if (resp.$ === 'Ok') {
 					var folderName = resp.a;
 					return {
@@ -10213,18 +10340,17 @@ var $author$project$Update$update = F2(
 					var err = resp.a;
 					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
 				}
-			default:
+			case 'OnCodeEditorChanged':
 				var code = msg.a;
-				var _v9 = model.selectedFile;
-				if (_v9.$ === 'Just') {
-					var file = _v9.a;
-					var updatedFile = _Utils_update(
-						file,
-						{content: code});
+				var _v10 = model.selectedFileName;
+				if (_v10.$ === 'Just') {
+					var fileName = _v10.a;
 					var updatedFiles = A2(
 						$gren_lang$core$Array$map,
 						function (f) {
-							return _Utils_eq(f.name, file.name) ? updatedFile : f;
+							return _Utils_eq(f.name, fileName) ? _Utils_update(
+								f,
+								{content: code}) : f;
 						},
 						model.files);
 					var updatedModel = _Utils_update(
@@ -10234,7 +10360,176 @@ var $author$project$Update$update = F2(
 				} else {
 					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
 				}
+			case 'OnNewFileButtonClicked':
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{showNewFileModal: true})
+				};
+			case 'OnNewFileNameChanged':
+				var name = msg.a;
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{newFileName: name})
+				};
+			case 'OnNewFileModalCloseButtonClicked':
+				return {
+					command: $gren_lang$core$Platform$Cmd$none,
+					model: _Utils_update(
+						model,
+						{newFileName: '', showNewFileModal: false})
+				};
+			default:
+				var newFileName = $gren_lang$core$String$trim(
+					A3($gren_lang$core$String$replace, '.gren', '', model.newFileName));
+				var newFile = {content: '', extension: 'gren', name: newFileName};
+				var fileNameEmpty = newFileName === '';
+				var fileExists = A2(
+					$gren_lang$core$Array$any,
+					function (f) {
+						return _Utils_eq(f.name, newFileName);
+					},
+					model.files);
+				var updatedFiles = (fileExists || fileNameEmpty) ? model.files : A2($gren_lang$core$Array$pushLast, newFile, model.files);
+				var updatedModel = _Utils_update(
+					model,
+					{files: updatedFiles, newFileName: '', showNewFileModal: false});
+				return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
 		}
+	});
+var $author$project$Message$OnNewFileModalCloseButtonClicked = {$: 'OnNewFileModalCloseButtonClicked'};
+var $author$project$Message$OnNewFileModalSaveButtonClicked = {$: 'OnNewFileModalSaveButtonClicked'};
+var $author$project$Message$OnNewFileNameChanged = function (a) {
+	return {$: 'OnNewFileNameChanged', a: a};
+};
+var $gren_lang$browser$Html$Attributes$placeholder = $gren_lang$browser$Html$Attributes$stringProperty('placeholder');
+var $author$project$View$viewModal = F2(
+	function (model, children) {
+		return A2(
+			$gren_lang$browser$Html$div,
+			[
+				$gren_lang$browser$Html$Attributes$class('w-full h-full'),
+				$gren_lang$browser$Html$Attributes$class('fixed top-0 left-0'),
+				$gren_lang$browser$Html$Attributes$class('flex justify-center items-center'),
+				$gren_lang$browser$Html$Attributes$class('bg-black bg-opacity-50')
+			],
+			children);
+	});
+var $author$project$View$viewCreateNewFileModal = function (model) {
+	return A2(
+		$author$project$View$viewModal,
+		model,
+		[
+			A2(
+			$gren_lang$browser$Html$div,
+			[
+				$gren_lang$browser$Html$Attributes$class('bg-white rounded'),
+				$gren_lang$browser$Html$Attributes$class('p-4 shadow')
+			],
+			[
+				A2(
+				$gren_lang$browser$Html$input,
+				[
+					$gren_lang$browser$Html$Attributes$class('w-full'),
+					$gren_lang$browser$Html$Attributes$class('h-8'),
+					$gren_lang$browser$Html$Attributes$class('bg-white'),
+					$gren_lang$browser$Html$Attributes$class('text-black'),
+					$gren_lang$browser$Html$Attributes$class('p-2'),
+					$gren_lang$browser$Html$Attributes$class('border-2 border-black'),
+					$gren_lang$browser$Html$Attributes$class('border-solid'),
+					$gren_lang$browser$Html$Attributes$class('rounded'),
+					$gren_lang$browser$Html$Attributes$class('outline-none'),
+					$gren_lang$browser$Html$Attributes$placeholder('File name'),
+					$gren_lang$browser$Html$Attributes$value(model.newFileName),
+					$gren_lang$browser$Html$Events$onInput($author$project$Message$OnNewFileNameChanged)
+				],
+				[]),
+				A2(
+				$gren_lang$browser$Html$div,
+				[
+					$gren_lang$browser$Html$Attributes$class('w-full'),
+					$gren_lang$browser$Html$Attributes$class('flex justify-between items-center'),
+					$gren_lang$browser$Html$Attributes$class('mt-4')
+				],
+				[
+					A2(
+					$gren_lang$browser$Html$button,
+					[
+						$gren_lang$browser$Html$Events$onClick($author$project$Message$OnNewFileModalSaveButtonClicked)
+					],
+					[
+						$gren_lang$browser$Html$text('Create File')
+					]),
+					A2(
+					$gren_lang$browser$Html$button,
+					[
+						$gren_lang$browser$Html$Events$onClick($author$project$Message$OnNewFileModalCloseButtonClicked)
+					],
+					[
+						$gren_lang$browser$Html$text('Cancel')
+					])
+				])
+			])
+		]);
+};
+var $author$project$Message$OnDeleteFileModalCancelButtonClicked = {$: 'OnDeleteFileModalCancelButtonClicked'};
+var $author$project$Message$OnDeleteFileModalConfirmButtonClicked = function (a) {
+	return {$: 'OnDeleteFileModalConfirmButtonClicked', a: a};
+};
+var $author$project$View$viewDeleteFileModal = F2(
+	function (model, fileName) {
+		return A2(
+			$author$project$View$viewModal,
+			model,
+			[
+				A2(
+				$gren_lang$browser$Html$div,
+				[
+					$gren_lang$browser$Html$Attributes$class('bg-white rounded'),
+					$gren_lang$browser$Html$Attributes$class('p-4 shadow')
+				],
+				[
+					A2(
+					$gren_lang$browser$Html$div,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full'),
+						$gren_lang$browser$Html$Attributes$class('flex justify-between items-center'),
+						$gren_lang$browser$Html$Attributes$class('mt-4')
+					],
+					[
+						$gren_lang$browser$Html$text('Are you sure you want to delete ' + (fileName + '?'))
+					]),
+					A2(
+					$gren_lang$browser$Html$div,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full'),
+						$gren_lang$browser$Html$Attributes$class('flex justify-between items-center'),
+						$gren_lang$browser$Html$Attributes$class('mt-4')
+					],
+					[
+						A2(
+						$gren_lang$browser$Html$button,
+						[
+							$gren_lang$browser$Html$Events$onClick(
+							$author$project$Message$OnDeleteFileModalConfirmButtonClicked(fileName))
+						],
+						[
+							$gren_lang$browser$Html$text('DELETE')
+						]),
+						A2(
+						$gren_lang$browser$Html$button,
+						[
+							$gren_lang$browser$Html$Events$onClick($author$project$Message$OnDeleteFileModalCancelButtonClicked)
+						],
+						[
+							$gren_lang$browser$Html$text('Cancel')
+						])
+					])
+				])
+			]);
 	});
 var $author$project$Message$OnCodeEditorChanged = function (a) {
 	return {$: 'OnCodeEditorChanged', a: a};
@@ -10250,20 +10545,34 @@ var $author$project$View$viewCodeEditor = function (model) {
 			$gren_lang$browser$Html$Events$onInput($author$project$Message$OnCodeEditorChanged)
 		],
 		function () {
-			var _v0 = model.selectedFile;
+			var _v0 = model.selectedFileName;
 			if (_v0.$ === 'Just') {
-				var file = _v0.a;
-				return [
-					A2(
-					$gren_lang$browser$Html$textarea,
-					[
-						$gren_lang$browser$Html$Attributes$class('whitespace-pre-wrap'),
-						$gren_lang$browser$Html$Attributes$class('w-full h-full')
-					],
-					[
-						$gren_lang$browser$Html$text(file.content)
-					])
-				];
+				var fileName = _v0.a;
+				var maybeFile = A2(
+					$gren_lang$core$Array$findFirst,
+					function (file) {
+						return _Utils_eq(file.name, fileName);
+					},
+					model.files);
+				if (maybeFile.$ === 'Just') {
+					var file = maybeFile.a;
+					var _v2 = A2($gren_lang$core$Debug$log, 'file', file);
+					return [
+						A2(
+						$gren_lang$browser$Html$textarea,
+						[
+							$gren_lang$browser$Html$Attributes$class('whitespace-pre-wrap'),
+							$gren_lang$browser$Html$Attributes$class('w-full h-full'),
+							$gren_lang$browser$Html$Attributes$class('pl-2'),
+							$gren_lang$browser$Html$Attributes$value(file.content)
+						],
+						[])
+					];
+				} else {
+					return [
+						$gren_lang$browser$Html$text('File not found')
+					];
+				}
 			} else {
 				return [
 					$gren_lang$browser$Html$text('No file selected')
@@ -10355,6 +10664,7 @@ var $author$project$View$viewRight = function (model) {
 			])
 		]);
 };
+var $author$project$Message$OnNewFileButtonClicked = {$: 'OnNewFileButtonClicked'};
 var $author$project$View$viewSideBarTopPanel = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
@@ -10362,25 +10672,92 @@ var $author$project$View$viewSideBarTopPanel = function (model) {
 			$gren_lang$browser$Html$Attributes$class('w-full h-8'),
 			$gren_lang$browser$Html$Attributes$class('bg-green-500')
 		],
-		[]);
+		[
+			A2(
+			$gren_lang$browser$Html$button,
+			[
+				$gren_lang$browser$Html$Events$onClick($author$project$Message$OnNewFileButtonClicked)
+			],
+			[
+				$gren_lang$browser$Html$text('New File')
+			])
+		]);
+};
+var $author$project$Message$OnSideBarDeleteFileButtonClicked = function (a) {
+	return {$: 'OnSideBarDeleteFileButtonClicked', a: a};
 };
 var $author$project$Message$OnSidebarFileClicked = function (a) {
 	return {$: 'OnSidebarFileClicked', a: a};
 };
-var $author$project$View$viewSidebarFile = function (file) {
-	return A2(
-		$gren_lang$browser$Html$button,
-		[
-			$gren_lang$browser$Html$Attributes$class('h-8'),
-			$gren_lang$browser$Html$Attributes$class('bg-blue-700'),
-			$gren_lang$browser$Html$Attributes$class('w-full'),
-			$gren_lang$browser$Html$Events$onClick(
-			$author$project$Message$OnSidebarFileClicked(file))
-		],
-		[
-			$gren_lang$browser$Html$text(file.name)
-		]);
+var $author$project$Message$OnUpdateFileNameButtonClicked = function (a) {
+	return {$: 'OnUpdateFileNameButtonClicked', a: a};
 };
+var $gren_lang$browser$Html$Attributes$classList = function (classes) {
+	return $gren_lang$browser$Html$Attributes$class(
+		A2(
+			$gren_lang$core$String$join,
+			' ',
+			A2(
+				$gren_lang$core$Array$map,
+				function ($) {
+					return $._class;
+				},
+				A2(
+					$gren_lang$core$Array$filter,
+					function ($) {
+						return $.enabled;
+					},
+					classes))));
+};
+var $author$project$View$viewSidebarFile = F2(
+	function (model, file) {
+		var isSelectedFile = function () {
+			var _v0 = model.selectedFileName;
+			if (_v0.$ === 'Just') {
+				var fileName = _v0.a;
+				return _Utils_eq(fileName, file.name);
+			} else {
+				return false;
+			}
+		}();
+		return A2(
+			$gren_lang$browser$Html$button,
+			[
+				$gren_lang$browser$Html$Attributes$class('h-8'),
+				$gren_lang$browser$Html$Attributes$class('bg-blue-700'),
+				$gren_lang$browser$Html$Attributes$class('w-full'),
+				$gren_lang$browser$Html$Attributes$class('flex justify-start items-center'),
+				$gren_lang$browser$Html$Attributes$class('pl-2'),
+				$gren_lang$browser$Html$Attributes$classList(
+				[
+					{_class: 'bg-orange-800 text-white', enabled: isSelectedFile}
+				]),
+				$gren_lang$browser$Html$Events$onClick(
+				$author$project$Message$OnSidebarFileClicked(file))
+			],
+			[
+				$gren_lang$browser$Html$text(
+				_Utils_ap(file.name, file.extension)),
+				A2(
+				$gren_lang$browser$Html$button,
+				[
+					$gren_lang$browser$Html$Events$onClick(
+					$author$project$Message$OnSideBarDeleteFileButtonClicked(file.name))
+				],
+				[
+					$gren_lang$browser$Html$text('DELETE')
+				]),
+				A2(
+				$gren_lang$browser$Html$button,
+				[
+					$gren_lang$browser$Html$Events$onClick(
+					$author$project$Message$OnUpdateFileNameButtonClicked(file.name))
+				],
+				[
+					$gren_lang$browser$Html$text('UPDATE')
+				])
+			]);
+	});
 var $author$project$View$viewSidebarFiles = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
@@ -10392,7 +10769,10 @@ var $author$project$View$viewSidebarFiles = function (model) {
 			'width',
 			$gren_lang$core$String$fromInt(model.sidebarWidth) + 'px')
 		],
-		A2($gren_lang$core$Array$map, $author$project$View$viewSidebarFile, model.files));
+		A2(
+			$gren_lang$core$Array$map,
+			$author$project$View$viewSidebarFile(model),
+			model.files));
 };
 var $author$project$View$viewSidebar = function (model) {
 	return A2(
@@ -10410,6 +10790,69 @@ var $author$project$View$viewSidebar = function (model) {
 			$author$project$View$viewSidebarFiles(model)
 		]);
 };
+var $author$project$Message$OnUpdateFileNameModalCancelButtonClicked = {$: 'OnUpdateFileNameModalCancelButtonClicked'};
+var $author$project$Message$OnUpdateFileNameModalConfirmButtonClicked = {$: 'OnUpdateFileNameModalConfirmButtonClicked'};
+var $author$project$Message$OnUpdateFileNameModalFileNameChanged = function (a) {
+	return {$: 'OnUpdateFileNameModalFileNameChanged', a: a};
+};
+var $author$project$View$viewUpdateFileNameModal = F2(
+	function (model, newFileName) {
+		return A2(
+			$author$project$View$viewModal,
+			model,
+			[
+				A2(
+				$gren_lang$browser$Html$div,
+				[
+					$gren_lang$browser$Html$Attributes$class('bg-white rounded'),
+					$gren_lang$browser$Html$Attributes$class('p-4 shadow')
+				],
+				[
+					A2(
+					$gren_lang$browser$Html$input,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full'),
+						$gren_lang$browser$Html$Attributes$class('h-8'),
+						$gren_lang$browser$Html$Attributes$class('bg-white'),
+						$gren_lang$browser$Html$Attributes$class('text-black'),
+						$gren_lang$browser$Html$Attributes$class('p-2'),
+						$gren_lang$browser$Html$Attributes$class('border-2 border-black'),
+						$gren_lang$browser$Html$Attributes$class('border-solid'),
+						$gren_lang$browser$Html$Attributes$class('rounded'),
+						$gren_lang$browser$Html$Attributes$class('outline-none'),
+						$gren_lang$browser$Html$Attributes$placeholder('File name'),
+						$gren_lang$browser$Html$Attributes$value(newFileName),
+						$gren_lang$browser$Html$Events$onInput($author$project$Message$OnUpdateFileNameModalFileNameChanged)
+					],
+					[]),
+					A2(
+					$gren_lang$browser$Html$div,
+					[
+						$gren_lang$browser$Html$Attributes$class('w-full'),
+						$gren_lang$browser$Html$Attributes$class('flex justify-between items-center'),
+						$gren_lang$browser$Html$Attributes$class('mt-4')
+					],
+					[
+						A2(
+						$gren_lang$browser$Html$button,
+						[
+							$gren_lang$browser$Html$Events$onClick($author$project$Message$OnUpdateFileNameModalConfirmButtonClicked)
+						],
+						[
+							$gren_lang$browser$Html$text('Update')
+						]),
+						A2(
+						$gren_lang$browser$Html$button,
+						[
+							$gren_lang$browser$Html$Events$onClick($author$project$Message$OnUpdateFileNameModalCancelButtonClicked)
+						],
+						[
+							$gren_lang$browser$Html$text('Cancel')
+						])
+					])
+				])
+			]);
+	});
 var $author$project$View$view = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
@@ -10420,7 +10863,26 @@ var $author$project$View$view = function (model) {
 		],
 		[
 			$author$project$View$viewSidebar(model),
-			$author$project$View$viewRight(model)
+			$author$project$View$viewRight(model),
+			model.showNewFileModal ? $author$project$View$viewCreateNewFileModal(model) : $gren_lang$browser$Html$text(''),
+			function () {
+			var _v0 = model.showDeleteFileModal;
+			if (_v0.$ === 'Just') {
+				var fileName = _v0.a;
+				return A2($author$project$View$viewDeleteFileModal, model, fileName);
+			} else {
+				return $gren_lang$browser$Html$text('');
+			}
+		}(),
+			function () {
+			var _v1 = model.showUpdateFileNameModal;
+			if (_v1.$ === 'Just') {
+				var newName = _v1.a.newName;
+				return A2($author$project$View$viewUpdateFileNameModal, model, newName);
+			} else {
+				return $gren_lang$browser$Html$text('');
+			}
+		}()
 		]);
 };
 var $author$project$Main$main = $gren_lang$browser$Browser$element(
@@ -10457,4 +10919,4 @@ _Platform_export({'Main':{'init':$author$project$Main$main(
 							},
 							A2($gren_lang$core$Json$Decode$field, 'name', $gren_lang$core$Json$Decode$string)))));
 		},
-		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.File":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.File"],"OnGotSelectedFileFromLocalStorage":["Result.Result WebStorage.ReadError String.String"],"OnSaveButtonClicked":[],"GotCreateNewProjectResponse":["Result.Result Http.Error String.String"],"GotSaveResponse":["Result.Result Http.Error String.String"],"OnCodeEditorChanged":["String.String"],"NoOp":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"WebStorage.ReadError":{"args":[],"tags":{"NoValue":[],"ReadBlocked":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));
+		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.GrenFile":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.GrenFile"],"OnGotSelectedFileFromLocalStorage":["Result.Result WebStorage.ReadError String.String"],"OnSaveButtonClicked":[],"GotCreateNewProjectResponse":["Result.Result Http.Error String.String"],"GotSaveResponse":["Result.Result Http.Error String.String"],"OnCodeEditorChanged":["String.String"],"NoOp":[],"OnNewFileButtonClicked":[],"OnNewFileNameChanged":["String.String"],"OnNewFileModalSaveButtonClicked":[],"OnNewFileModalCloseButtonClicked":[],"OnUpdateFileNameButtonClicked":["String.String"],"OnUpdateFileNameModalFileNameChanged":["String.String"],"OnUpdateFileNameModalConfirmButtonClicked":[],"OnUpdateFileNameModalCancelButtonClicked":[],"OnSideBarDeleteFileButtonClicked":["String.String"],"OnDeleteFileModalConfirmButtonClicked":["String.String"],"OnDeleteFileModalCancelButtonClicked":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"WebStorage.ReadError":{"args":[],"tags":{"NoValue":[],"ReadBlocked":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));
