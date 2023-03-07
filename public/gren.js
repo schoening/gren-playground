@@ -9738,10 +9738,16 @@ var $gren_lang$web_storage$LocalStorage$get = function (key) {
 	return A2($gren_lang$web_storage$Internal$WebStorage$get, true, key);
 };
 var $gren_lang$core$Debug$log = _Debug_log;
+var $gren_lang$core$Array$sortBy = _Array_sortBy;
 var $gren_lang$core$Debug$toString = _Debug_toString;
 var $author$project$Init$init = function (flags) {
 	var initialModel = {
-		files: flags.files,
+		files: A2(
+			$gren_lang$core$Array$sortBy,
+			function (f) {
+				return (f.name === 'Main') ? 1 : 2;
+			},
+			flags.files),
 		folderName: (flags.folderName === 'new') ? $author$project$Model$New : $author$project$Model$FolderName(flags.folderName),
 		newFileName: '',
 		reloadIframeHack: 0,
@@ -10417,7 +10423,7 @@ var $author$project$Update$update = F2(
 			default:
 				var newFileName = $gren_lang$core$String$trim(
 					A3($gren_lang$core$String$replace, '.gren', '', model.newFileName));
-				var newFile = {content: '', extension: 'gren', name: newFileName};
+				var newFile = {content: '', extension: '.gren', name: newFileName};
 				var fileNameEmpty = newFileName === '';
 				var fileExists = A2(
 					$gren_lang$core$Array$any,

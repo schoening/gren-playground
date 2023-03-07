@@ -13,7 +13,7 @@ export const loader: LoaderFunction = async ({ params }) => {
   const files: api.FileData[] = [
     {
       name: "Main",
-      extension: "gren",
+      extension: ".gren",
       content: dedent(`module Main exposing ( main )
         
         import Html as H
@@ -40,9 +40,26 @@ export default function ProjectPage() {
   useEffect(() => {
     const element = document.querySelector("#gren");
     if (element && window.Gren) {
-      window.Gren.Main.init({
+      const app = window.Gren.Main.init({
         node: element,
         flags: { folderName: "new", files },
+      });
+
+      app.ports.setCodeEditorValue.subscribe((code: string) => {
+        const codeEditor = document.querySelector("wc-monaco-editor") as any;
+
+        if (codeEditor) {
+          codeEditor.value = code;
+        } else {
+          setTimeout(() => {
+            const codeEditor = document.querySelector(
+              "wc-monaco-editor"
+            ) as any;
+            if (codeEditor) {
+              codeEditor.value = code;
+            }
+          }, 250);
+        }
       });
     }
   }, []);
@@ -51,6 +68,10 @@ export default function ProjectPage() {
     <div>
       <link href="/output.css" />
       <div id="gren"></div>
+      <script
+        type="module"
+        src="https://cdn.jsdelivr.net/gh/vanillawc/wc-monaco-editor@1/index.js"
+      ></script>
       <script src={`/gren.js`}></script>
     </div>
   );

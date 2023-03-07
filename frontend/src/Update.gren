@@ -286,7 +286,7 @@ update msg model =
                 newFile : GrenFile
                 newFile =
                     { name = newFileName
-                    , extension = "gren"
+                    , extension = ".gren"
                     , content = ""
                     }
 

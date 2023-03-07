@@ -56,8 +56,6 @@ export default function ProjectPage() {
         flags: { folderName, files },
       });
 
-      console.log({ app });
-
       app.ports.setCodeEditorValue.subscribe((code: string) => {
         const codeEditor = document.querySelector("wc-monaco-editor") as any;
 
