@@ -37,8 +37,6 @@ export const loader: LoaderFunction = async ({ params }) => {
 export default function IframePage() {
   const { folderName, grenJSFound, compileError } = useLoaderData();
 
-  console.log({ folderName, grenJSFound, compileError });
-
   useEffect(() => {
     if (compileError || !grenJSFound) {
       return;

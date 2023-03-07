@@ -47,19 +47,32 @@ type LoaderData = {
 
 export default function ProjectPage() {
   const { folderName, files } = useLoaderData<LoaderData>();
-  console.log({ folderName, files });
-
-  // TESTING IF FOLDERNAME AND FILES EVER CHANGE ON AJAX REQUEST
-  useEffect(() => {
-    console.log({ folderName, files });
-  }, [folderName, files]);
 
   useEffect(() => {
     const element = document.querySelector("#gren");
     if (element && window.Gren) {
-      window.Gren.Main.init({
+      const app = window.Gren.Main.init({
         node: element,
         flags: { folderName, files },
+      });
+
+      console.log({ app });
+
+      app.ports.setCodeEditorValue.subscribe((code: string) => {
+        const codeEditor = document.querySelector("wc-monaco-editor") as any;
+
+        if (codeEditor) {
+          codeEditor.value = code;
+        } else {
+          setTimeout(() => {
+            const codeEditor = document.querySelector(
+              "wc-monaco-editor"
+            ) as any;
+            if (codeEditor) {
+              codeEditor.value = code;
+            }
+          }, 250);
+        }
       });
     }
   }, []);
@@ -68,6 +81,11 @@ export default function ProjectPage() {
     <div>
       <link href="/output.css" />
       <div id="gren"></div>
+      <script
+        type="module"
+        src="https://cdn.jsdelivr.net/gh/vanillawc/wc-monaco-editor@1/index.js"
+      ></script>
+
       <script src={`/gren.js`}></script>
     </div>
   );

@@ -3,6 +3,7 @@ module View exposing ( view )
 import Html as H
 import Html.Attributes as HA
 import Html.Events as HE
+import Json.Encode as Encode
 import Message exposing (..)
 import Model exposing (..)
 
@@ -79,7 +80,7 @@ viewCodeEditor model =
         [ HA.class "flex-1"
         , HA.class "bg-slate-500"
         , HA.class "w-full"
-        , HE.onInput OnCodeEditorChanged
+            -- , HE.onInput OnCodeEditorChanged
         ]
         (case model.selectedFileName of
             Just fileName ->
@@ -89,15 +90,9 @@ viewCodeEditor model =
                 in
                 case maybeFile of
                     Just file ->
-                        let
-                            _ =
-                                Debug.log "file" file
-                        in
-                        [ H.textarea
-                            [ HA.class "whitespace-pre-wrap"
-                            , HA.class "w-full h-full"
-                            , HA.class "pl-2"
-                            , HA.value file.content
+                        [ H.node
+                            "wc-monaco-editor"
+                            [ HE.onInput OnCodeEditorChanged
                             ]
                             []
                         ]
@@ -196,7 +191,7 @@ viewSidebarFile model file =
         , HA.class "flex justify-start items-center"
         , HA.class "pl-2"
         , HA.classList
-            [ { class = "bg-orange-800 text-white"
+            [ { class = "text-white bg-orange-800"
               , enabled = isSelectedFile
               }
             ]

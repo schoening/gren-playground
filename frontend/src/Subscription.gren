@@ -1,9 +1,15 @@
-module Subscription exposing ( subscriptions )
+port module Subscription exposing ( subscriptions, setCodeEditorValue )
 
 import Message exposing (..)
 import Model exposing (..)
 
 
+port setCodeEditorValue : String -> Cmd msg
+
+
+port onCodeEditorChanged : (String -> msg) -> Sub msg
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    onCodeEditorChanged OnCodeEditorChanged

@@ -10,10 +10,11 @@ type Msg
     = OnSidebarFileClicked GrenFile
         -- | OnSideBarChangeFileNameButtonClicked GrenFile
     | OnGotSelectedFileFromLocalStorage (Result WebStorage.ReadError String)
+        -- EDITOR
+    | OnCodeEditorChanged String
     | OnSaveButtonClicked
     | GotCreateNewProjectResponse (Result Http.Error String)
     | GotSaveResponse (Result Http.Error String)
-    | OnCodeEditorChanged String
     | NoOp
         -- NEW FILE
     | OnNewFileButtonClicked

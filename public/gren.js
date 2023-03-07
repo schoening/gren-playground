@@ -9770,11 +9770,12 @@ var $author$project$Init$init = function (flags) {
 		model: initialModel
 	};
 };
-var $gren_lang$core$Platform$Sub$batch = _Platform_batch;
-var $gren_lang$core$Platform$Sub$none = $gren_lang$core$Platform$Sub$batch(
-	[]);
+var $author$project$Message$OnCodeEditorChanged = function (a) {
+	return {$: 'OnCodeEditorChanged', a: a};
+};
+var $author$project$Subscription$onCodeEditorChanged = _Platform_incomingPort('onCodeEditorChanged', $gren_lang$core$Json$Decode$string);
 var $author$project$Subscription$subscriptions = function (model) {
-	return $gren_lang$core$Platform$Sub$none;
+	return $author$project$Subscription$onCodeEditorChanged($author$project$Message$OnCodeEditorChanged);
 };
 var $author$project$Message$GotCreateNewProjectResponse = function (a) {
 	return {$: 'GotCreateNewProjectResponse', a: a};
@@ -9782,6 +9783,7 @@ var $author$project$Message$GotCreateNewProjectResponse = function (a) {
 var $author$project$Message$GotSaveResponse = function (a) {
 	return {$: 'GotSaveResponse', a: a};
 };
+var $author$project$Message$NoOp = {$: 'NoOp'};
 var $gren_lang$core$Array$findFirst = _Array_findFirst;
 var $gren_lang$core$Array$any = F2(
 	function (fn, array) {
@@ -10126,6 +10128,12 @@ var $author$project$Data$saveRequestEncoder = F2(
 			}
 			]);
 	});
+var $gren_lang$web_storage$Internal$WebStorage$set = _WebStorage_set;
+var $gren_lang$web_storage$LocalStorage$set = F2(
+	function (key, value) {
+		return A3($gren_lang$web_storage$Internal$WebStorage$set, true, key, value);
+	});
+var $author$project$Subscription$setCodeEditorValue = _Platform_outgoingPort('setCodeEditorValue', $gren_lang$core$Json$Encode$string);
 var $gren_lang$browser$Http$stringBody = _Http_pair;
 var $gren_lang$core$String$trim = _String_trim;
 var $author$project$Update$update = F2(
@@ -10139,15 +10147,50 @@ var $author$project$Update$update = F2(
 						selectedFileName: $gren_lang$core$Maybe$Just(file.name)
 					});
 				var folderName = function () {
-					var _v1 = model.folderName;
-					if (_v1.$ === 'FolderName') {
-						var name = _v1.a;
+					var _v2 = model.folderName;
+					if (_v2.$ === 'FolderName') {
+						var name = _v2.a;
 						return name;
 					} else {
 						return 'new';
 					}
 				}();
-				return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
+				return {
+					command: $gren_lang$core$Platform$Cmd$batch(
+						[
+							A2(
+							$gren_lang$core$Task$attempt,
+							function (_v1) {
+								return $author$project$Message$NoOp;
+							},
+							A2($gren_lang$web_storage$LocalStorage$set, 'selected-file' + ('_' + folderName), file.name)),
+							$author$project$Subscription$setCodeEditorValue(file.content)
+						]),
+					model: updatedModel
+				};
+			case 'OnCodeEditorChanged':
+				var content = msg.a;
+				var _v3 = model.selectedFileName;
+				if (_v3.$ === 'Just') {
+					var fileName = _v3.a;
+					var updatedFiles = A2(
+						$gren_lang$core$Array$map,
+						function (f) {
+							return _Utils_eq(f.name, fileName) ? _Utils_update(
+								f,
+								{content: content}) : f;
+						},
+						model.files);
+					return {
+						command: $gren_lang$core$Platform$Cmd$none,
+						model: _Utils_update(
+							model,
+							{files: updatedFiles})
+					};
+				} else {
+					var _v4 = A2($gren_lang$core$Debug$log, 'No file selected', content);
+					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
+				}
 			case 'OnUpdateFileNameButtonClicked':
 				var fileName = msg.a;
 				return {
@@ -10171,8 +10214,8 @@ var $author$project$Update$update = F2(
 								$gren_lang$core$Maybe$Nothing,
 								A2(
 									$gren_lang$core$Maybe$map,
-									function (_v2) {
-										var oldName = _v2.oldName;
+									function (_v5) {
+										var oldName = _v5.oldName;
 										return $gren_lang$core$Maybe$Just(
 											{newName: updatedFileName, oldName: oldName});
 									},
@@ -10185,9 +10228,9 @@ var $author$project$Update$update = F2(
 					model.files,
 					A2(
 						$gren_lang$core$Maybe$map,
-						function (_v3) {
-							var oldName = _v3.oldName;
-							var newName = _v3.newName;
+						function (_v6) {
+							var oldName = _v6.oldName;
+							var newName = _v6.newName;
 							return A2(
 								$gren_lang$core$Array$map,
 								function (f) {
@@ -10246,22 +10289,35 @@ var $author$project$Update$update = F2(
 				var result = msg.a;
 				if (result.$ === 'Ok') {
 					var fileName = result.a;
-					var selectedFileName = A2(
-						$gren_lang$core$Maybe$map,
-						function (f) {
-							return f.name;
-						},
+					var selectedFile = A2(
+						$gren_lang$core$Array$get,
+						0,
 						A2(
-							$gren_lang$core$Array$get,
-							0,
-							A2(
-								$gren_lang$core$Array$filter,
-								function (f) {
-									return _Utils_eq(f.name, fileName);
-								},
-								model.files)));
+							$gren_lang$core$Array$filter,
+							function (f) {
+								return _Utils_eq(f.name, fileName);
+							},
+							model.files));
+					var selectedFileName = A2(
+						$gren_lang$core$Maybe$withDefault,
+						$gren_lang$core$Maybe$Nothing,
+						A2(
+							$gren_lang$core$Maybe$map,
+							function (f) {
+								return $gren_lang$core$Maybe$Just(f.name);
+							},
+							selectedFile));
 					return {
-						command: $gren_lang$core$Platform$Cmd$none,
+						command: A2(
+							$gren_lang$core$Maybe$withDefault,
+							$gren_lang$core$Platform$Cmd$none,
+							A2(
+								$gren_lang$core$Maybe$map,
+								function (_v8) {
+									var content = _v8.content;
+									return $author$project$Subscription$setCodeEditorValue(content);
+								},
+								selectedFile)),
 						model: _Utils_update(
 							model,
 							{selectedFileName: selectedFileName})
@@ -10286,9 +10342,9 @@ var $author$project$Update$update = F2(
 					};
 				}
 			case 'OnSaveButtonClicked':
-				var _v5 = model.folderName;
-				if (_v5.$ === 'FolderName') {
-					var fName = _v5.a;
+				var _v9 = model.folderName;
+				if (_v9.$ === 'FolderName') {
+					var fName = _v9.a;
 					var encodedRequest = A2(
 						$gren_lang$core$Json$Encode$encode,
 						0,
@@ -10299,10 +10355,6 @@ var $author$project$Update$update = F2(
 							expect: $gren_lang$browser$Http$expectString($author$project$Message$GotSaveResponse),
 							url: '/api/save'
 						});
-					var _v6 = A2(
-						$gren_lang$core$Debug$log,
-						'encodedRequest',
-						$gren_lang$core$Debug$toString(encodedRequest));
 					return {command: request, model: model};
 				} else {
 					var folderNameDecoder = A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string);
@@ -10320,7 +10372,7 @@ var $author$project$Update$update = F2(
 				}
 			case 'GotSaveResponse':
 				var response = msg.a;
-				var _v7 = A2($gren_lang$core$Debug$log, 'response', response);
+				var _v10 = A2($gren_lang$core$Debug$log, 'response', response);
 				return {
 					command: $gren_lang$core$Platform$Cmd$none,
 					model: _Utils_update(
@@ -10329,7 +10381,7 @@ var $author$project$Update$update = F2(
 				};
 			case 'GotCreateNewProjectResponse':
 				var resp = msg.a;
-				var _v8 = A2($gren_lang$core$Debug$log, 'resp', resp);
+				var _v11 = A2($gren_lang$core$Debug$log, 'resp', resp);
 				if (resp.$ === 'Ok') {
 					var folderName = resp.a;
 					return {
@@ -10338,26 +10390,6 @@ var $author$project$Update$update = F2(
 					};
 				} else {
 					var err = resp.a;
-					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
-				}
-			case 'OnCodeEditorChanged':
-				var code = msg.a;
-				var _v10 = model.selectedFileName;
-				if (_v10.$ === 'Just') {
-					var fileName = _v10.a;
-					var updatedFiles = A2(
-						$gren_lang$core$Array$map,
-						function (f) {
-							return _Utils_eq(f.name, fileName) ? _Utils_update(
-								f,
-								{content: code}) : f;
-						},
-						model.files);
-					var updatedModel = _Utils_update(
-						model,
-						{files: updatedFiles});
-					return {command: $gren_lang$core$Platform$Cmd$none, model: updatedModel};
-				} else {
 					return {command: $gren_lang$core$Platform$Cmd$none, model: model};
 				}
 			case 'OnNewFileButtonClicked':
@@ -10531,18 +10563,13 @@ var $author$project$View$viewDeleteFileModal = F2(
 				])
 			]);
 	});
-var $author$project$Message$OnCodeEditorChanged = function (a) {
-	return {$: 'OnCodeEditorChanged', a: a};
-};
-var $gren_lang$browser$Html$textarea = $gren_lang$browser$Html$node('textarea');
 var $author$project$View$viewCodeEditor = function (model) {
 	return A2(
 		$gren_lang$browser$Html$div,
 		[
 			$gren_lang$browser$Html$Attributes$class('flex-1'),
 			$gren_lang$browser$Html$Attributes$class('bg-slate-500'),
-			$gren_lang$browser$Html$Attributes$class('w-full'),
-			$gren_lang$browser$Html$Events$onInput($author$project$Message$OnCodeEditorChanged)
+			$gren_lang$browser$Html$Attributes$class('w-full')
 		],
 		function () {
 			var _v0 = model.selectedFileName;
@@ -10556,15 +10583,12 @@ var $author$project$View$viewCodeEditor = function (model) {
 					model.files);
 				if (maybeFile.$ === 'Just') {
 					var file = maybeFile.a;
-					var _v2 = A2($gren_lang$core$Debug$log, 'file', file);
 					return [
-						A2(
-						$gren_lang$browser$Html$textarea,
+						A3(
+						$gren_lang$browser$Html$node,
+						'wc-monaco-editor',
 						[
-							$gren_lang$browser$Html$Attributes$class('whitespace-pre-wrap'),
-							$gren_lang$browser$Html$Attributes$class('w-full h-full'),
-							$gren_lang$browser$Html$Attributes$class('pl-2'),
-							$gren_lang$browser$Html$Attributes$value(file.content)
+							$gren_lang$browser$Html$Events$onInput($author$project$Message$OnCodeEditorChanged)
 						],
 						[])
 					];
@@ -10730,7 +10754,7 @@ var $author$project$View$viewSidebarFile = F2(
 				$gren_lang$browser$Html$Attributes$class('pl-2'),
 				$gren_lang$browser$Html$Attributes$classList(
 				[
-					{_class: 'bg-orange-800 text-white', enabled: isSelectedFile}
+					{_class: 'text-white bg-orange-800', enabled: isSelectedFile}
 				]),
 				$gren_lang$browser$Html$Events$onClick(
 				$author$project$Message$OnSidebarFileClicked(file))
@@ -10922,4 +10946,4 @@ _Platform_export({'Main':{'init':$author$project$Main$main(
 							},
 							A2($gren_lang$core$Json$Decode$field, 'name', $gren_lang$core$Json$Decode$string)))));
 		},
-		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.GrenFile":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.GrenFile"],"OnGotSelectedFileFromLocalStorage":["Result.Result WebStorage.ReadError String.String"],"OnSaveButtonClicked":[],"GotCreateNewProjectResponse":["Result.Result Http.Error String.String"],"GotSaveResponse":["Result.Result Http.Error String.String"],"OnCodeEditorChanged":["String.String"],"NoOp":[],"OnNewFileButtonClicked":[],"OnNewFileNameChanged":["String.String"],"OnNewFileModalSaveButtonClicked":[],"OnNewFileModalCloseButtonClicked":[],"OnUpdateFileNameButtonClicked":["String.String"],"OnUpdateFileNameModalFileNameChanged":["String.String"],"OnUpdateFileNameModalConfirmButtonClicked":[],"OnUpdateFileNameModalCancelButtonClicked":[],"OnSideBarDeleteFileButtonClicked":["String.String"],"OnDeleteFileModalConfirmButtonClicked":["String.String"],"OnDeleteFileModalCancelButtonClicked":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"WebStorage.ReadError":{"args":[],"tags":{"NoValue":[],"ReadBlocked":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));
+		A2($gren_lang$core$Json$Decode$field, 'folderName', $gren_lang$core$Json$Decode$string)))({"versions":{"gren":"0.2.1"},"types":{"message":"Message.Msg","aliases":{"Model.GrenFile":{"args":[],"type":"{ name : String.String, extension : String.String, content : String.String }"}},"unions":{"Message.Msg":{"args":[],"tags":{"OnSidebarFileClicked":["Model.GrenFile"],"OnGotSelectedFileFromLocalStorage":["Result.Result WebStorage.ReadError String.String"],"OnCodeEditorChanged":["String.String"],"OnSaveButtonClicked":[],"GotCreateNewProjectResponse":["Result.Result Http.Error String.String"],"GotSaveResponse":["Result.Result Http.Error String.String"],"NoOp":[],"OnNewFileButtonClicked":[],"OnNewFileNameChanged":["String.String"],"OnNewFileModalSaveButtonClicked":[],"OnNewFileModalCloseButtonClicked":[],"OnUpdateFileNameButtonClicked":["String.String"],"OnUpdateFileNameModalFileNameChanged":["String.String"],"OnUpdateFileNameModalConfirmButtonClicked":[],"OnUpdateFileNameModalCancelButtonClicked":[],"OnSideBarDeleteFileButtonClicked":["String.String"],"OnDeleteFileModalConfirmButtonClicked":["String.String"],"OnDeleteFileModalCancelButtonClicked":[]}},"Http.Error":{"args":[],"tags":{"BadUrl":["String.String"],"Timeout":[],"NetworkError":[],"BadStatus":["Basics.Int"],"BadBody":["String.String"]}},"WebStorage.ReadError":{"args":[],"tags":{"NoValue":[],"ReadBlocked":[]}},"Result.Result":{"args":["error","value"],"tags":{"Ok":["value"],"Err":["error"]}},"String.String":{"args":[],"tags":{"String":[]}},"Basics.Int":{"args":[],"tags":{"Int":[]}}}}})}});}(this.module ? this.module.exports : this));
