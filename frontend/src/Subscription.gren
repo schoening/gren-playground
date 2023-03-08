@@ -1,15 +1,21 @@
-port module Subscription exposing ( subscriptions, setCodeEditorValue )
+port module Subscription exposing ( subscriptions, toJS_SetCodeEditorValue )
 
 import Message exposing (..)
 import Model exposing (..)
 
 
-port setCodeEditorValue : String -> Cmd msg
+
+-- when selecting a file, the code editor should be updated
 
 
-port onCodeEditorChanged : (String -> msg) -> Sub msg
+port toJS_SetCodeEditorValue : String -> Cmd msg
+
+
+port toGren_CodeEditorHasChanged : (String -> msg) -> Sub msg
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    onCodeEditorChanged OnCodeEditorChanged
+    Sub.batch
+        [ toGren_CodeEditorHasChanged FromJS_CodeEditorHasChanged
+        ]

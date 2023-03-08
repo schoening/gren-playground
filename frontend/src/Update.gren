@@ -1,5 +1,6 @@
 module Update exposing ( update )
 
+import Browser.Dom
 import Browser.Navigation
 import Data
 import Http
@@ -37,37 +38,34 @@ update msg model =
             , command =
                 Cmd.batch
                     [ Task.attempt (\_ -> NoOp) (LocalStorage.set ("selected-file" ++ "_" ++ folderName) file.name)
-                    , Subscription.setCodeEditorValue file.content
+                    , Subscription.toJS_SetCodeEditorValue file.content
                     ]
             }
 
-        -- EDITOR
-        OnCodeEditorChanged content ->
-            case model.selectedFileName of
-                Just fileName ->
-                    let
-                        updatedFiles =
+        -- (PORT) EDITOR
+        FromJS_CodeEditorHasChanged code ->
+            let
+                updatedFiles =
+                    case model.selectedFileName of
+                        Just fileName ->
                             Array.map
                                 (\f ->
                                     if f.name == fileName then
-                                        { f | content = content }
+                                        { f | content = code }
                                     else
                                         f
                                 )
                                 model.files
-                    in
-                    { model = { model | files = updatedFiles }
-                    , command = Cmd.none
-                    }
 
-                Nothing ->
-                    let
-                        _ =
-                            Debug.log "No file selected" content
-                    in
-                    { model = model
-                    , command = Cmd.none
-                    }
+                        Nothing ->
+                            model.files
+
+                _ =
+                    Debug.log "FromJS_CodeEditorHasChanged" code
+            in
+            { model = { model | files = updatedFiles }
+            , command = Cmd.none
+            }
 
         -- UPDATE FILE NAME
         OnUpdateFileNameButtonClicked fileName ->
@@ -79,7 +77,7 @@ update msg model =
                             , newName = fileName
                             }
                 }
-            , command = Cmd.none
+            , command = Task.attempt (\_ -> AttemptFocusElement "input") (Browser.Dom.focus "input")
             }
 
         OnUpdateFileNameModalFileNameChanged updatedFileName ->
@@ -131,7 +129,11 @@ update msg model =
 
         -- DELETE FILE
         OnSideBarDeleteFileButtonClicked fileName ->
-            { model = { model | showDeleteFileModal = Just fileName }
+            let
+                updatedModel =
+                    { model | showDeleteFileModal = Just fileName }
+            in
+            { model = updatedModel
             , command = Cmd.none
             }
 
@@ -177,7 +179,7 @@ update msg model =
                     { model = { model | selectedFileName = selectedFileName }
                     , command =
                         -- Set the initial value of the code editor
-                        Maybe.map (\{ content } -> Subscription.setCodeEditorValue content) selectedFile
+                        Maybe.map (\{ content } -> Subscription.toJS_SetCodeEditorValue content) selectedFile
                             |> Maybe.withDefault Cmd.none
                     }
 
@@ -257,9 +259,10 @@ update msg model =
                     , command = Cmd.none
                     }
 
+        -- NEW FILE
         OnNewFileButtonClicked ->
             { model = { model | showNewFileModal = True }
-            , command = Cmd.none
+            , command = Task.attempt (\_ -> AttemptFocusElement "input") (Browser.Dom.focus "input")
             }
 
         OnNewFileNameChanged name ->
@@ -311,4 +314,17 @@ update msg model =
             in
             { model = updatedModel
             , command = Cmd.none
+            }
+
+        AttemptFocusElement searchQuery ->
+            let
+                focusElement : Cmd Msg
+                focusElement =
+                    Task.attempt (\_ -> NoOp) (Browser.Dom.focus searchQuery)
+
+                _ =
+                    Debug.log "searchQuery" searchQuery
+            in
+            { model = model
+            , command = focusElement
             }

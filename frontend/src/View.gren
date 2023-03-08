@@ -3,6 +3,7 @@ module View exposing ( view )
 import Html as H
 import Html.Attributes as HA
 import Html.Events as HE
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Message exposing (..)
 import Model exposing (..)
@@ -13,7 +14,7 @@ view model =
     H.div
         [ HA.class "w-screen h-screen"
         , HA.class "flex"
-        , HA.class "bg-slate-500"
+        , HA.class "bg-slate-900"
         ]
         [ viewSidebar model
         , viewRight model
@@ -58,8 +59,11 @@ viewRight model =
 
 viewRightTopBar model =
     H.div
-        [ HA.class "w-full h-8"
-        , HA.class "bg-slate-600"
+        [ HA.class "w-full h-10"
+        , HA.class "flex items-center"
+        , HA.class "px-2"
+        , HA.class "bg-indigo-800"
+        , HA.class "border-b-2 border-indigo-600"
         ]
         [ H.button
             [ HA.class "h-8"
@@ -76,11 +80,46 @@ viewRightTopBar model =
 
 viewCodeEditor : Model -> H.Html Msg
 viewCodeEditor model =
+    let
+        onCut : (String -> msg) -> H.Attribute msg
+        onCut tagger =
+            HE.stopPropagationOn "cut" (Decode.map alwaysPropagate (Decode.map tagger HE.targetValue))
+
+        onPaste : (String -> msg) -> H.Attribute msg
+        onPaste tagger =
+            HE.stopPropagationOn "paste" (Decode.map alwaysPropagate (Decode.map tagger HE.targetValue))
+
+        alwaysPropagate :
+            msg
+            -> { message : msg
+               , stopPropagation : Bool
+               }
+        alwaysPropagate msg =
+            { message = msg
+            , stopPropagation = False
+            }
+    in
     H.div
         [ HA.class "flex-1"
-        , HA.class "bg-slate-500"
+        , HA.class "bg-slate-900"
         , HA.class "w-full"
-            -- , HE.onInput OnCodeEditorChanged
+            -- , HE.onInput FromGren_Trigger_FromJS_SetCurrentFileContent
+            -- , onCut
+            --     (\v ->
+            --         -- let
+            --         --     _ =
+            --         --         Debug.log "onCut" v
+            --         -- in
+            --         FromGren_Trigger_FromJS_SetCurrentFileContent v
+            --     )
+            -- , onPaste
+            --     (\v ->
+            --         -- let
+            --         --     _ =
+            --         --         Debug.log "onPaste" v
+            --         -- in
+            --         FromGren_Trigger_FromJS_SetCurrentFileContent v
+            --     )
         ]
         (case model.selectedFileName of
             Just fileName ->
@@ -92,17 +131,25 @@ viewCodeEditor model =
                     Just file ->
                         [ H.node
                             "wc-monaco-editor"
-                            [ HE.onInput OnCodeEditorChanged
+                            [ HA.attribute "language" "elm"
                             ]
                             []
                         ]
 
                     Nothing ->
-                        [ H.text "File not found"
+                        [ H.div
+                            [ HA.class "text-white"
+                            ]
+                            [ H.text "File not found"
+                            ]
                         ]
 
             Nothing ->
-                [ H.text "No file selected"
+                [ H.div
+                    [ HA.class "text-white"
+                    ]
+                    [ H.text "No file selected"
+                    ]
                 ]
         )
 
@@ -140,8 +187,8 @@ viewIframe model =
 viewSidebar : Model -> H.Html Msg
 viewSidebar model =
     H.div
-        [ HA.class "h-screen"
-        , HA.class "bg-slate-600"
+        [ HA.class "h-full"
+        , HA.class "bg-indigo-800"
         , HA.style "width" (String.fromInt model.sidebarWidth ++ "px")
         ]
         [ viewSideBarTopPanel model
@@ -152,13 +199,20 @@ viewSidebar model =
 viewSideBarTopPanel : Model -> H.Html Msg
 viewSideBarTopPanel model =
     H.div
-        [ HA.class "w-full h-8"
-        , HA.class "bg-green-500"
+        [ HA.class "w-full h-10"
+        , HA.class "bg-indigo-800"
+        , HA.class "border-b-2 border-indigo-600"
+        , HA.class "flex justify-end items-center"
+        , HA.class "px-2"
         ]
         [ H.button
             [ HE.onClick OnNewFileButtonClicked
             ]
-            [ H.text "New File"
+            [ H.i
+                [ HA.class "gg-file-add"
+                , HA.class "text-white"
+                ]
+                []
             ]
         ]
 
@@ -166,8 +220,8 @@ viewSideBarTopPanel model =
 viewSidebarFiles : Model -> H.Html Msg
 viewSidebarFiles model =
     H.div
-        [ HA.class "h-full"
-        , HA.class "bg-blue-600"
+        [ HA.class ""
+        , HA.class "bg-indigo-800"
         , HA.style "width" (String.fromInt model.sidebarWidth ++ "px")
         ]
         (Array.map (viewSidebarFile model) model.files)
@@ -186,31 +240,69 @@ viewSidebarFile model file =
     in
     H.button
         [ HA.class "h-8"
-        , HA.class "bg-blue-700"
+        , HA.class "bg-indigo-800 text-slate-200"
         , HA.class "w-full"
         , HA.class "flex justify-start items-center"
         , HA.class "pl-2"
         , HA.classList
-            [ { class = "text-white bg-orange-800"
+            [ { class = "text-white bg-indigo-600"
               , enabled = isSelectedFile
               }
             ]
         , HE.onClick (OnSidebarFileClicked file)
         ]
         (if file.name == "Main" then
-            [ H.text (file.name ++ file.extension)
+            [ H.div
+                [ HA.class "w-6"
+                ]
+                [ H.i
+                    [ HA.class "gg-file-document"
+                    , HA.class "mr-2"
+                    ]
+                    []
+                ]
+            , H.span
+                [ HA.class "whitespace-nowrap text-left flex-1 w-full"
+                ]
+                [ H.text (file.name ++ file.extension)
+                ]
             ]
          else
-            [ H.text (file.name ++ file.extension)
-            , H.button
-                [ HE.onClick (OnSideBarDeleteFileButtonClicked file.name)
+            [ H.div
+                [ HA.class "w-6"
                 ]
-                [ H.text "DELETE"
+                [ H.i
+                    [ HA.class "gg-file-document"
+                    , HA.class "mr-2"
+                    ]
+                    []
                 ]
-            , H.button
-                [ HE.onClick (OnUpdateFileNameButtonClicked file.name)
+            , H.div
+                [ HA.class "flex items-center w-full"
                 ]
-                [ H.text "UPDATE"
+                [ H.span
+                    [ HA.class "whitespace-nowrap"
+                    , HA.class "flex-1 w-full text-left"
+                    ]
+                    [ H.text (file.name ++ file.extension)
+                    ]
+                , H.button
+                    [ HE.onClick (OnSideBarDeleteFileButtonClicked file.name)
+                    , HA.class "mr-2"
+                    ]
+                    [ H.i
+                        [ HA.class "gg-trash"
+                        ]
+                        []
+                    ]
+                , H.button
+                    [ HE.onClick (OnUpdateFileNameButtonClicked file.name)
+                    ]
+                    [ H.i
+                        [ HA.class "gg-rename"
+                        ]
+                        []
+                    ]
                 ]
             ]
         )

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "run-p watch:*",
     "watch:css": "tailwindcss -i src/index.css -o ../public/output.css -w",
-    "watch:gren": "watch 'npm run format:gren && npm run build:gren -- --debug' src",
+    "watch:gren": "watch 'npm run format:gren && npm run build:gren' src",
     "format:gren": "gren format src --yes",
     "build:gren": "gren make src/Main.gren --output=../public/gren.js",
     "build:css": "tailwindcss -i src/index.css -o dist/output.css"
