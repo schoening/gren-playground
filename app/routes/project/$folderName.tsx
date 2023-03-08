@@ -3,6 +3,8 @@ import { useLoaderData } from "@remix-run/react";
 import { useEffect } from "react";
 import * as E from "fp-ts/lib/Either";
 import * as api from "~/api.server";
+import { commitSession, getSession } from "~/session.server";
+import uuid4 from "uuid4";
 
 export const links: LinksFunction = () => {
   return [
@@ -11,8 +13,17 @@ export const links: LinksFunction = () => {
   ];
 };
 
-export const loader: LoaderFunction = async ({ params }) => {
+export const loader: LoaderFunction = async ({ request, params }) => {
   console.log("loader /project/$folderName.tsx");
+
+  const session = await getSession(request.headers.get("Cookie"));
+
+  if (!session.has("createdBy")) {
+    console.log("no session found. Creating new session");
+    const createdBy = uuid4();
+    session.set("createdBy", createdBy);
+  }
+
   const folderName = params.folderName;
 
   const fileNamesEither = await api.getFileNames(
@@ -21,17 +32,18 @@ export const loader: LoaderFunction = async ({ params }) => {
 
   if (E.isRight(fileNamesEither)) {
     const fileNames = fileNamesEither.right;
-    console.log({ fileNames });
-    console.log("Getting files...");
+
     const filesEither = await api.getFiles(
       `./project/${folderName}/src`,
       fileNames
     )();
-    console.log("Got filesEither: ", filesEither);
+
     if (E.isRight(filesEither)) {
       const files = filesEither.right;
-      console.log({ folderName, files });
-      return json({ folderName, files });
+      return json(
+        { folderName, files },
+        { headers: { "Set-Cookie": await commitSession(session) } }
+      );
     }
     if (E.isLeft(filesEither)) {
       const error = filesEither.left;

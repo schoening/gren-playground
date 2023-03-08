@@ -1,9 +1,9 @@
 import { ActionFunction } from "@remix-run/node";
 import uuid4 from "uuid4";
-import dedent from "dedent";
 import * as E from "fp-ts/Either";
 import * as api from "~/api.server";
 import { json } from "react-router";
+import { getSession } from "~/session.server";
 
 // Almost the same as app/routes/api/save.tsx
 // But also initializes the project
@@ -11,6 +11,19 @@ export const action: ActionFunction = async ({ request }) => {
   console.log("/api/create.tsx: request", request);
 
   const folderName = `${uuid4()}_1`;
+  const session = await getSession(request.headers.get("Cookie"));
+
+  let createdBy = session.get("createdBy");
+
+  if (!createdBy) {
+    throw new Error("No session!");
+  }
+
+  const sessionFile: api.FileData = {
+    name: "session",
+    extension: "txt",
+    content: createdBy,
+  };
 
   let jsonResult;
   try {
@@ -26,13 +39,13 @@ export const action: ActionFunction = async ({ request }) => {
   await api.createFolder(`./project/${folderName}`)();
   await api.createFolder(`./project/${folderName}/src`)();
 
-  console.log("before gren init");
+  const createSessionFileEither = await api.createFile(
+    `./project/${folderName}`,
+    sessionFile
+  )();
+  console.log("createSessionFileEither", createSessionFileEither);
 
   await api.grenInit(folderName)();
-
-  console.log("after gren init");
-
-  console.log("before create files");
 
   const createFilesEither = await api.createFiles(
     `./project/${folderName}/src`,
@@ -44,12 +57,7 @@ export const action: ActionFunction = async ({ request }) => {
     throw new Error(error.message);
   }
 
-  console.log("after create files");
-
-  console.log("before compile");
   const compileEither = await api.compile(folderName)();
-
-  console.log("after compile");
 
   if (E.isLeft(compileEither)) {
     const error = compileEither.left;
@@ -58,7 +66,6 @@ export const action: ActionFunction = async ({ request }) => {
   }
 
   if (E.isRight(compileEither)) {
-    console.log(compileEither.right);
     return json({ folderName }, { status: 200 });
   }
 };

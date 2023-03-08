@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import * as E from "fp-ts/lib/Either";
 import * as api from "~/api.server";
 import dedent from "dedent";
+import uuid4 from "uuid4";
+import { commitSession, getSession } from "~/session.server";
 
 export const links: LinksFunction = () => {
   return [
@@ -11,7 +13,18 @@ export const links: LinksFunction = () => {
     { rel: "stylesheet", href: "/icons.css" },
   ];
 };
-export const loader: LoaderFunction = async ({ params }) => {
+
+export const loader: LoaderFunction = async ({ request, params }) => {
+  const session = await getSession(request.headers.get("Cookie"));
+
+  if (!session.has("createdBy")) {
+    console.log("no session found. Creating new session");
+    const createdBy = uuid4();
+    session.set("createdBy", createdBy);
+  }
+
+  console.log(session.get("createdBy"));
+
   const files: api.FileData[] = [
     {
       name: "Main",
@@ -28,7 +41,10 @@ export const loader: LoaderFunction = async ({ params }) => {
     },
   ];
 
-  return json({ files });
+  return json(
+    { files },
+    { headers: { "Set-Cookie": await commitSession(session) } }
+  );
 };
 
 type LoaderData = {
